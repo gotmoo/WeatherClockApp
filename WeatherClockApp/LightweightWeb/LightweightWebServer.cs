@@ -114,28 +114,13 @@ namespace WeatherClockApp.LightweightWeb
                         if (url == "/save-wifi")
                         {
                             ParseWifiFormData(body);
-                            Debug.WriteLine("  - SSID: " + (string.IsNullOrEmpty(_settings.Ssid) ? "Not set" : _settings.Ssid));
-                            Debug.WriteLine("  - Password: " + (string.IsNullOrEmpty(_settings.Password) ? "Not set" : _settings.Password));
-
                             SettingsUpdated?.Invoke(this, _settings);
-                            Debug.WriteLine("  - SSID: " + (string.IsNullOrEmpty(_settings.Ssid) ? "Not set" : _settings.Ssid));
-                            Debug.WriteLine("  - Password: " + (string.IsNullOrEmpty(_settings.Password) ? "Not set" : _settings.Password));
-
                             ServeRebootPage(stream, "Wi-Fi settings saved. Device is rebooting.");
                         }
                         else if (url == "/save-app-settings")
                         {
-                            Debug.WriteLine("  - APIkey: " + (string.IsNullOrEmpty(_settings.WeatherApiKey) ? "Not set" : _settings.WeatherApiKey));
-                            Debug.WriteLine("  - LocationName: " + (string.IsNullOrEmpty(_settings.LocationName) ? "Not set" : _settings.LocationName));
-                            Debug.WriteLine("  - Longitude: " + (_settings.Longitude == 0 ? "Not set" : _settings.Longitude));
-                            Debug.WriteLine("  - Latitude: " + (_settings.Latitude == 0 ? "Not set" : _settings.Latitude));
                             ParseAppSettingsFormData(body);
-
                             SettingsUpdated?.Invoke(this, _settings);
-                            Debug.WriteLine("  - APIkey: " + (string.IsNullOrEmpty(_settings.WeatherApiKey) ? "Not set" : _settings.WeatherApiKey));
-                            Debug.WriteLine("  - LocationName: " + (string.IsNullOrEmpty(_settings.LocationName) ? "Not set" : _settings.LocationName));
-                            Debug.WriteLine("  - Longitude: " + (_settings.Longitude == 0 ? "Not set" : _settings.Longitude));
-                            Debug.WriteLine("  - Latitude: " + (_settings.Latitude == 0 ? "Not set" : _settings.Latitude));
                             SendRedirectResponse(stream, "/");
                         }
                         else if (url == "/reboot")
@@ -147,7 +132,7 @@ namespace WeatherClockApp.LightweightWeb
                     {
                         if (url == "/")
                         {
-                            SendResponse(stream, "200 OK", "text/html", WebServerPages.Index(_settings));
+                            StreamIndexPage(stream, _settings);
                         }
                         else if (url.StartsWith("/api/scan-wifi"))
                         {
@@ -156,12 +141,12 @@ namespace WeatherClockApp.LightweightWeb
                         else if (url.StartsWith("/api/geo-resolve"))
                         {
                             var location = WebUtility.GetParamValue(url, "location");
-                            if (location == null)
-                            {
-                                var content = @"[{""Error"": ""Location Missing""}]";
-                                SendResponse(stream, "200 OK", "application/json", content);
-                            }
-                            SendResponse(stream, "200 OK", "application/json", WeatherManager.GeoLocate(location, _settings.WeatherApiKey));
+                            var content = WeatherManager.GeoLocate(location, _settings.WeatherApiKey);
+                            SendResponse(stream, "200 OK", "application/json", content);
+                        }
+                        else if (url == "/favicon.ico")
+                        {
+                            SendResponse(stream, "404 Not Found", "text/plain", "");
                         }
                         else
                         {
@@ -178,6 +163,22 @@ namespace WeatherClockApp.LightweightWeb
             {
                 Debug.WriteLine($"Error handling client: {ex.Message}");
             }
+        }
+
+        private void StreamIndexPage(NetworkStream stream, AppSettings settings)
+        {
+            string headers = "HTTP/1.1 200 OK\r\n" +
+                             "Content-Type: text/html\r\n" +
+                             "Transfer-Encoding: chunked\r\n" +
+                             "Connection: close\r\n\r\n";
+            byte[] headerBytes = Encoding.UTF8.GetBytes(headers);
+            stream.Write(headerBytes, 0, headerBytes.Length);
+
+            WebServerPages.WriteIndexPage(stream, settings);
+
+            // Send the final zero-length chunk to terminate the response
+            byte[] finalChunk = Encoding.UTF8.GetBytes("0\r\n\r\n");
+            stream.Write(finalChunk, 0, finalChunk.Length);
         }
 
         private string GetPostBody(string rawRequest, string[] requestLines)

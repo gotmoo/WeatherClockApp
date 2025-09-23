@@ -1,15 +1,17 @@
-﻿using System.Text;
+﻿using System.Net.Sockets;
+using System.Text;
 using WeatherClockApp.Models;
 
 namespace WeatherClockApp.LightweightWeb
 {
     internal static class WebServerPages
     {
-        internal static string Index(AppSettings settings)
+        /// <summary>
+        /// Writes the main index page to the network stream using chunked encoding to save memory.
+        /// </summary>
+        internal static void WriteIndexPage(NetworkStream stream, AppSettings settings)
         {
-            // Using a StringBuilder for efficient string construction
-            var sb = new StringBuilder();
-            sb.Append(@"
+            WriteChunk(stream, @"
 <!DOCTYPE html>
 <html>
 <head>
@@ -47,8 +49,8 @@ namespace WeatherClockApp.LightweightWeb
             <form action='/save-wifi' method='post'>
                 <div class='form-group inline-group'>
                     <input type='text' id='ssid' name='ssid' required placeholder='Select or type Wi-Fi SSID' value='");
-            sb.Append(settings.Ssid ?? "");
-            sb.Append(@"'>
+            WriteChunk(stream, settings.Ssid ?? "");
+            WriteChunk(stream, @"'>
                     <button type='button' id='scan-wifi-btn' class='btn btn-secondary'>Scan</button>
                 </div>
                 <div class='form-group'>
@@ -57,8 +59,8 @@ namespace WeatherClockApp.LightweightWeb
                 </div>
                 <div class='form-group inline-group'>
                     <input type='password' id='password' name='password' placeholder='Wi-Fi Password' value='");
-            sb.Append(settings.Password ?? "");
-            sb.Append(@"'>
+            WriteChunk(stream, settings.Password ?? "");
+            WriteChunk(stream, @"'>
                     <button type='button' id='show-pw-btn' class='btn btn-secondary'>Show</button>
                 </div>
                 <button type='submit' class='btn'>Save Wi-Fi & Reboot</button>
@@ -72,8 +74,8 @@ namespace WeatherClockApp.LightweightWeb
                 <div class='form-group'>
                     <label for='weatherApiKey'>Weather API Key</label>
                     <input type='text' id='weatherApiKey' name='weatherApiKey' value='");
-            sb.Append(settings.WeatherApiKey ?? "");
-            sb.Append(@"'>
+            WriteChunk(stream, settings.WeatherApiKey ?? "");
+            WriteChunk(stream, @"'>
                 </div>
                 <div class='form-group'>
                     <label for='locationSearch'>Location Search</label>
@@ -89,20 +91,20 @@ namespace WeatherClockApp.LightweightWeb
                 <div class='form-group'>
                     <label for='locationName'>Selected Location</label>
                     <input type='text' id='locationName' name='locationName' readonly value='");
-            sb.Append(settings.LocationName ?? "");
-            sb.Append(@"'>
+            WriteChunk(stream, settings.LocationName ?? "");
+            WriteChunk(stream, @"'>
                 </div>
                 <div class='form-group'>
                     <label for='latitude'>Latitude</label>
                     <input type='number' step='any' id='latitude' name='latitude' value='");
-            sb.Append(settings.Latitude);
-            sb.Append(@"'>
+            WriteChunk(stream, settings.Latitude.ToString());
+            WriteChunk(stream, @"'>
                 </div>
                 <div class='form-group'>
                     <label for='longitude'>Longitude</label>
                     <input type='number' step='any' id='longitude' name='longitude' value='");
-            sb.Append(settings.Longitude);
-            sb.Append(@"'>
+            WriteChunk(stream, settings.Longitude.ToString());
+            WriteChunk(stream, @"'>
                 </div>
                 <button type='submit' class='btn'>Save App Settings</button>
             </form>
@@ -235,7 +237,6 @@ namespace WeatherClockApp.LightweightWeb
     </script>
 </body>
 </html>");
-            return sb.ToString();
         }
 
         internal static string RebootPage(string message)
@@ -263,6 +264,17 @@ namespace WeatherClockApp.LightweightWeb
     </div>
 </body>
 </html>";
+        }
+
+        private static void WriteChunk(NetworkStream stream, string data)
+        {
+            if (string.IsNullOrEmpty(data)) return;
+
+            byte[] bytes = Encoding.UTF8.GetBytes(data);
+            byte[] lengthHeader = Encoding.UTF8.GetBytes($"{bytes.Length:X}\r\n");
+            stream.Write(lengthHeader, 0, lengthHeader.Length);
+            stream.Write(bytes, 0, bytes.Length);
+            stream.Write(new byte[] { 13, 10 }, 0, 2); // \r\n
         }
     }
 }
