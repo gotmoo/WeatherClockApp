@@ -84,7 +84,8 @@ namespace WeatherClockApp
         {
             DisplayManager.ShowStatus("Updating", "Weather");
             var newData = WeatherManager.FetchWeatherData(_settings);
-            if (newData != null)
+            Console.WriteLine($"Fetched Weather Data: {!newData.IsNullObject} Temp: {newData.Temperature}");
+            if (!newData.IsNullObject)
             {
                 _weatherData = newData;
                 _lastWeatherUpdate = DateTime.UtcNow;
@@ -94,6 +95,7 @@ namespace WeatherClockApp
                 DisplayManager.SetTemperature($"{Math.Round(_weatherData.Temperature)}°{unit}");
 
                 // Briefly show the city and temp as confirmation
+                DisplayManager.ShowStatus(_weatherData.CityName, $"{Math.Round(_weatherData.Temperature)}°{unit}");
                 Thread.Sleep(2500);
             }
             else

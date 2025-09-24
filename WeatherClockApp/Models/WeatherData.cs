@@ -18,5 +18,6 @@
         // Top-level fields
         public int UtcOffsetSeconds { get; set; }
         public string CityName { get; set; }
+        public bool IsNullObject { get; set; }
     }
 }
