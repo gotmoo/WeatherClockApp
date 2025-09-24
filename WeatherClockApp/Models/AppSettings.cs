@@ -14,8 +14,16 @@ namespace WeatherClockApp.Models
         public double Longitude { get; set; }
         public int DisplayPanels { get; set; } = 8;
         public int PanelRotation { get; set; } = 2; // 0 = normal, 2 = 180 degrees
-        public string WeatherUnit { get; set; } = "imperial";
+        public int PanelClock { get; set; } = 19;
+        public int PanelMosi { get; set; } = 23;
+        public int PanelBrightness { get; set; } = 1;
 
+        public string WeatherUnit { get; set; } = "imperial";
+        public string WeatherDisplay { get; set; } = "";
+        public int TimeZoneOffset { get; set; } = 0;
+        public int WeatherRefreshMinutes { get; set; } = 20;
+        public bool ShowDegreesSymbol { get; set; } = true;
+ 
         /// <summary>
         /// Serializes the current instance to an INI-formatted string.
         /// </summary>
@@ -33,7 +41,14 @@ namespace WeatherClockApp.Models
             sb.AppendLine($"{nameof(Longitude)}={Longitude}");
             sb.AppendLine($"{nameof(DisplayPanels)}={DisplayPanels}");
             sb.AppendLine($"{nameof(PanelRotation)}={PanelRotation}");
+            sb.AppendLine($"{nameof(PanelClock)}={PanelClock}");
+            sb.AppendLine($"{nameof(PanelMosi)}={PanelMosi}");
+            sb.AppendLine($"{nameof(PanelBrightness)}={PanelBrightness}");
             sb.AppendLine($"{nameof(WeatherUnit)}={WeatherUnit}");
+            sb.AppendLine($"{nameof(WeatherDisplay)}={WeatherDisplay}");
+            sb.AppendLine($"{nameof(TimeZoneOffset)}={TimeZoneOffset}");
+            sb.AppendLine($"{nameof(WeatherRefreshMinutes)}={WeatherRefreshMinutes}");
+            sb.AppendLine($"{nameof(ShowDegreesSymbol)}={ShowDegreesSymbol}");
             return sb.ToString();
         }
 
@@ -111,11 +126,32 @@ namespace WeatherClockApp.Models
                             case nameof(PanelRotation):
                                 settings.PanelRotation = int.TryParse(value, out var rotation) ? rotation : 0;
                                 break;
+                            case nameof(PanelClock):
+                                settings.PanelClock = int.TryParse(value, out var cl) ? cl : 0;
+                                break;
+                            case nameof(PanelMosi):
+                                settings.PanelMosi = int.TryParse(value, out var mosi) ? mosi : 0;
+                                break;
+                            case nameof(PanelBrightness):
+                                settings.PanelBrightness = int.TryParse(value, out var brightness) ? brightness : 0;
+                                break;
                             case nameof(DisplayPanels):
                                 settings.DisplayPanels = int.TryParse(value, out var cnt) ? cnt : 0;
                                 break;
                             case nameof(WeatherUnit):
                                 settings.WeatherUnit = value;
+                                break;
+                            case nameof(WeatherDisplay):
+                                settings.WeatherDisplay = value;
+                                break;
+                            case nameof(TimeZoneOffset):
+                                settings.TimeZoneOffset = int.TryParse(value, out var offset) ? offset : 0;
+                                break;
+                            case nameof(WeatherRefreshMinutes):
+                                settings.WeatherRefreshMinutes = int.TryParse(value, out var weatherRefresh) ? weatherRefresh : 0;
+                                break;
+                            case nameof(ShowDegreesSymbol):
+                                settings.ShowDegreesSymbol = value.ToLower() == "true" || value == "1";
                                 break;
                         }
                     }

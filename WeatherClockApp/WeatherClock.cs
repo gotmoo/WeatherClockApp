@@ -58,7 +58,7 @@ namespace WeatherClockApp
 
                 // Check to start the once-per-minute description scroll
                 // We start it at 58 seconds to give it time to render before the minute ticks over
-                if (now.Second == 58 && (now - _lastMinuteScroll).TotalSeconds > 58)
+                if (now.Second == 0 && (now - _lastMinuteScroll).TotalSeconds > 58)
                 {
                     if (_weatherData != null && !string.IsNullOrEmpty(_weatherData.Description))
                     {
@@ -89,6 +89,14 @@ namespace WeatherClockApp
             {
                 _weatherData = newData;
                 _lastWeatherUpdate = DateTime.UtcNow;
+
+                // Check if the timezone has changed and save settings if it has.
+                if (_settings.TimeZoneOffset != _weatherData.UtcOffsetSeconds)
+                {
+                    Debug.WriteLine($"Timezone offset updated from {_settings.TimeZoneOffset} to {_weatherData.UtcOffsetSeconds}. Saving settings.");
+                    _settings.TimeZoneOffset = _weatherData.UtcOffsetSeconds;
+                    SettingsManager.Save(_settings);
+                }
 
                 DisplayManager.SetUtcOffset(_weatherData.UtcOffsetSeconds);
                 string unit = _settings.WeatherUnit == "imperial" ? "F" : "C";
