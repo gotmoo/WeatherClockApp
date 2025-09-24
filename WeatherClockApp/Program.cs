@@ -24,17 +24,14 @@ namespace WeatherClockApp
             try
             {
                 Debug.WriteLine("Loading settings...");
-                var settings = SettingsManager.Load();
-                SettingsManager.GetSettingsFileContent();
-                // Print the loaded settings to the console
-                Debug.WriteLine("  - SSID: " + (string.IsNullOrEmpty(settings.Ssid) ? "Not set" : settings.Ssid));
-                Debug.WriteLine("  - Password: " + (string.IsNullOrEmpty(settings.Password) ? "Not set" : "Set"));
-                Debug.WriteLine("  - API Key: " + (string.IsNullOrEmpty(settings.WeatherApiKey) ? "Not set" : "Set"));
-                Debug.WriteLine("  - Location: " + (string.IsNullOrEmpty(settings.LocationName) ? "Not set" : settings.LocationName));
-                Debug.WriteLine($"  - Lat/Lon: {settings.Latitude}, {settings.Longitude}");
+                _settings = SettingsManager.Load();
+
+                // Initialize the display as early as possible
+                DisplayManager.Initialize(_settings);
+                DisplayManager.ShowStatus("Hello", "World");
 
 
-                if (!NetworkManager.Initialize(settings))
+                if (!NetworkManager.Initialize(_settings))
                 {
                     // Configuration Mode
                     Debug.WriteLine("Could not connect to Wi-Fi. Starting in Configuration Mode.");
@@ -58,7 +55,7 @@ namespace WeatherClockApp
                     Debug.WriteLine("DNS Server started.");
 
                     // Start Web Server
-                    _webServer = new LightweightWebServer(settings);
+                    _webServer = new LightweightWebServer(_settings);
                     _webServer.SettingsUpdated += OnSettingsUpdated; // Subscribe to the event
                     _webServer.Start(NetworkManager.ApIpAddress);
                     Debug.WriteLine("Web Server started.");
@@ -70,12 +67,12 @@ namespace WeatherClockApp
                     // Normal Mode
                     Debug.WriteLine($"Successfully connected to Wi-Fi with IP {NetworkManager.IpAddress}");
 
-                    _webServer = new LightweightWebServer(settings);
+                    _webServer = new LightweightWebServer(_settings);
                     _webServer.Start(NetworkManager.IpAddress);
                     _webServer.SettingsUpdated += OnSettingsUpdated; // Subscribe to the event
                     Debug.WriteLine("Web Server started for remote management.");
 
-                    var clock = new WeatherClock(settings);
+                    var clock = new WeatherClock(_settings);
                     clock.Run();
                 }
             }

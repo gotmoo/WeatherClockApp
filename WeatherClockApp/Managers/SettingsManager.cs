@@ -26,8 +26,12 @@ namespace WeatherClockApp.Managers
         {
             try
             {
+                Console.WriteLine("Loading Settings");
                 var settingsContent = GetFileContents(SettingsFilePath);
-                return settingsContent == null ? new AppSettings() : AppSettings.Deserialize(settingsContent);
+                Console.WriteLine($"Settings file contents");
+                Console.WriteLine(settingsContent);
+
+                return AppSettings.Deserialize(settingsContent);
             }
             catch (Exception ex)
             {
@@ -47,6 +51,7 @@ namespace WeatherClockApp.Managers
         }
         private static string GetFileContents(string filePath)
         {
+            Console.WriteLine($"Retrieving {filePath} contents");
             try
             {
                 if (File.Exists(filePath))

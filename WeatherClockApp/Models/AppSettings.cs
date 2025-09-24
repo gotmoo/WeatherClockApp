@@ -12,6 +12,9 @@ namespace WeatherClockApp.Models
         public string LocationName { get; set; }
         public double Latitude { get; set; }
         public double Longitude { get; set; }
+        public int DisplayPanels { get; set; } = 8;
+        public int PanelRotation { get; set; } = 2; // 0 = normal, 2 = 180 degrees
+
         /// <summary>
         /// Serializes the current instance to an INI-formatted string.
         /// </summary>
@@ -27,6 +30,8 @@ namespace WeatherClockApp.Models
             sb.AppendLine($"{nameof(LocationName)}={LocationName}");
             sb.AppendLine($"{nameof(Latitude)}={Latitude}");
             sb.AppendLine($"{nameof(Longitude)}={Longitude}");
+            sb.AppendLine($"{nameof(DisplayPanels)}={DisplayPanels}");
+            sb.AppendLine($"{nameof(PanelRotation)}={PanelRotation}");
             return sb.ToString();
         }
 
@@ -38,6 +43,10 @@ namespace WeatherClockApp.Models
         public static AppSettings Deserialize(string content)
         {
             var settings = new AppSettings();
+            if (string.IsNullOrEmpty(content))
+            {
+                return settings;
+            }
             string[] lines = content.Split('\n');
             string sectionName = $"[{nameof(AppSettings)}]";
             bool inSection = false;
@@ -71,7 +80,7 @@ namespace WeatherClockApp.Models
                     {
                         string key = line.Substring(0, separatorIndex).Trim();
                         string value = line.Substring(separatorIndex + 1).Trim();
-
+                        Console.WriteLine($"Key: {key}, Value: {value}");
                         // Use a switch for efficient property setting
                         switch (key)
                         {
@@ -91,15 +100,22 @@ namespace WeatherClockApp.Models
                                 settings.LocationName = value;
                                 break;
                             case nameof(Latitude):
-                                settings.Latitude = double.Parse(value);
+                                settings.Latitude = double.TryParse(value, out var lat) ? lat : 0;
                                 break;
                             case nameof(Longitude):
-                                settings.Longitude = double.Parse(value);
+                                settings.Longitude = double.TryParse(value, out var lon) ? lon : 0;
+                                break;
+                            case nameof(PanelRotation):
+                                settings.PanelRotation = int.TryParse(value, out var rotation) ? rotation : 0;
+                                break;
+                            case nameof(DisplayPanels):
+                                settings.DisplayPanels = int.TryParse(value, out var cnt) ? cnt : 0;
                                 break;
                         }
                     }
                 }
             }
+            Console.WriteLine($"Settings null: {settings == null}");
             return settings;
         }
     }
