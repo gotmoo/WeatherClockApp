@@ -21,6 +21,11 @@ namespace WeatherClockApp.Managers
         private static bool _isScrolling = false;
         private static Thread _scrollThread;
 
+        // State variables for the clock display
+        private static bool _isColonVisible = true;
+        private static int _utcOffsetSeconds = 0;
+        private static string _temperature = "--°F";
+
         public static void Initialize(AppSettings settings)
         {
             _settings = settings;
@@ -62,13 +67,102 @@ namespace WeatherClockApp.Managers
 
             Console.WriteLine("DisplayManager initialized.");
         }
+        public static void SetUtcOffset(int seconds) => _utcOffsetSeconds = seconds;
+        public static void ToggleColon() => _isColonVisible = !_isColonVisible;
+        public static void SetTemperature(string newTemperature) => _temperature = newTemperature;
+
+        /// <summary>
+        /// Renders the static time and temperature to the display.
+        /// </summary>
+        public static void UpdateTimeAndTemp()
+        {
+            if (_isScrolling) return; // Don't interfere with scrolling
+
+            Clear();
+            DateTime now = DateTime.UtcNow.AddSeconds(_utcOffsetSeconds);
+
+            string timeStr = now.ToString("HH mm"); // Use space to be replaced by colon later
+            if (_isColonVisible)
+            {
+                timeStr = now.ToString("HH:mm");
+            }
+
+            int leftHalfWidth = _screenWidth / 2;
+            int timeWidth = GetTextWidth(timeStr);
+            int timeX = (leftHalfWidth - timeWidth) / 2;
+            DrawText(timeStr, timeX, 0);
+
+            int rightHalfX = _screenWidth / 2;
+            int tempWidth = GetTextWidth(_temperature);
+            int tempX = rightHalfX + (leftHalfWidth - tempWidth) / 2;
+            DrawText(_temperature, tempX, 0);
+
+            Render();
+        }
+
+        /// <summary>
+        /// Scrolls a message across the right half of the display.
+        /// </summary>
+        public static void ScrollRightHalf(string message)
+        {
+            if (_isScrolling) return;
+
+            _scrollThread = new Thread(() => ScrollTextOnRightHalf(message));
+            _scrollThread.Start();
+        }
+
+        private static void ScrollTextOnRightHalf(object messageObj)
+        {
+            string message = (string)messageObj;
+            _isScrolling = true;
+
+            // Pre-render the time on the left half to a temporary buffer
+            byte[] leftHalfBuffer = new byte[_screenWidth / 2];
+            DateTime now = DateTime.UtcNow.AddSeconds(_utcOffsetSeconds);
+            string timeStr = now.ToString("HH:mm");
+            int timeWidth = GetTextWidth(timeStr);
+            int timeX = (_screenWidth / 2 - timeWidth) / 2;
+            RenderTextToBuffer(timeStr, timeX, 0, leftHalfBuffer);
+
+            // Pre-render the full scroll message to an off-screen buffer
+            int textWidth = GetTextWidth(message);
+            byte[] textBuffer = new byte[textWidth];
+            RenderTextToBuffer(message, 0, 0, textBuffer);
+
+            int rightHalfStart = _screenWidth / 2;
+            int rightHalfWidth = _screenWidth / 2;
+
+            // Animate scroll
+            for (int x = -rightHalfWidth; x < textWidth; x++)
+            {
+                lock (_displayBuffer)
+                {
+                    Array.Clear(_displayBuffer, 0, _displayBuffer.Length);
+                    Array.Copy(leftHalfBuffer, 0, _displayBuffer, 0, leftHalfBuffer.Length);
+
+                    int start = x > 0 ? x : 0;
+                    int end = (x + rightHalfWidth) < textWidth ? (x + rightHalfWidth) : textWidth;
+                    int destStart = rightHalfStart + (-x > 0 ? -x : 0);
+
+                    if (start < end)
+                    {
+                        Array.Copy(textBuffer, start, _displayBuffer, destStart, end - start);
+                    }
+                }
+                Render();
+                Thread.Sleep(35);
+            }
+
+            _isScrolling = false;
+        }
+
 
         public static void ShowStatus(string left, string right)
         {
             if (_isScrolling)
             {
                 _isScrolling = false;
-                Thread.Sleep(100); // Give the scroll thread a moment to exit
+                Thread.Sleep(100);
             }
             ShowTwoWords(left, right);
         }
@@ -78,7 +172,7 @@ namespace WeatherClockApp.Managers
             if (_isScrolling)
             {
                 _isScrolling = false;
-                Thread.Sleep(100); // Give the scroll thread a moment to exit
+                Thread.Sleep(100);
             }
             _scrollThread = new Thread(() => ScrollFullWidth(message));
             _scrollThread.Start();
@@ -128,6 +222,7 @@ namespace WeatherClockApp.Managers
             Render();
         }
 
+        #region Low Level Drawing
         private static int GetTextWidth(string text)
         {
             int width = 0;
@@ -199,5 +294,6 @@ namespace WeatherClockApp.Managers
                 _displayDriver.Render(_displayBuffer);
             }
         }
+        #endregion
     }
 }

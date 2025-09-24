@@ -1,7 +1,9 @@
-﻿using System;
+﻿using nanoFramework.Networking;
+using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
-using nanoFramework.Networking;
+using WeatherClockApp.Managers;
 using WeatherClockApp.Models;
 
 namespace WeatherClockApp
@@ -13,6 +15,10 @@ namespace WeatherClockApp
     internal class WeatherClock
     {
         private readonly AppSettings _settings;
+        private WeatherData _weatherData;
+        private DateTime _lastWeatherUpdate = DateTime.MinValue;
+        private DateTime _lastMinuteScroll = DateTime.MinValue;
+        private const int WeatherUpdateIntervalMinutes = 20;
 
         public WeatherClock(AppSettings settings)
         {
@@ -24,30 +30,78 @@ namespace WeatherClockApp
             // 1. Synchronize the time
             try
             {
-                // Using SNTP is very memory-efficient.
+                DisplayManager.ShowStatus("Syncing", "Time");
                 Sntp.Start();
-                Console.WriteLine($"Time synchronized. Current UTC time is: {DateTime.UtcNow}");
+                Sntp.UpdateNow();
+                Debug.WriteLine($"Time synchronized. Current UTC time is: {DateTime.UtcNow}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"SNTP failed: {ex.Message}");
+                Debug.WriteLine($"SNTP failed: {ex.Message}");
+                DisplayManager.ShowStatus("Time", "Failed");
+                Thread.Sleep(2000);
             }
 
-
-            // 2. TODO: Initialize the dot-matrix display here.
+            // 2. Initial Weather Fetch
+            UpdateWeatherData();
 
             // 3. Main application loop
             while (true)
             {
-                Console.WriteLine("Fetching weather data...");
-                // TODO: Call a WeatherManager to get and parse weather data.
+                DateTime now = DateTime.UtcNow;
 
-                Console.WriteLine("Updating display...");
-                // TODO: Update the dot-matrix display with time and weather.
+                // Check for periodic weather update
+                if ((now - _lastWeatherUpdate).TotalMinutes >= WeatherUpdateIntervalMinutes)
+                {
+                    UpdateWeatherData();
+                }
 
-                // Wait for 20 minutes before the next update.
-                Thread.Sleep(20 * 60 * 1000);
+                // Check to start the once-per-minute description scroll
+                // We start it at 58 seconds to give it time to render before the minute ticks over
+                if (now.Second == 58 && (now - _lastMinuteScroll).TotalSeconds > 58)
+                {
+                    if (_weatherData != null && !string.IsNullOrEmpty(_weatherData.Description))
+                    {
+                        string unit = _settings.WeatherUnit == "imperial" ? "F" : "C";
+                        string scrollText = $"{_weatherData.Description}, feels like {Math.Round(_weatherData.FeelsLike)}°{unit}";
+                        DisplayManager.ScrollRightHalf(scrollText);
+                        _lastMinuteScroll = now;
+                    }
+                }
+
+                // Update the static display every second for the blinking colon
+                DisplayManager.ToggleColon();
+                DisplayManager.UpdateTimeAndTemp();
+
+                Thread.Sleep(1000);
+            }
+        }
+
+        /// <summary>
+        /// Fetches new weather data and updates the display manager.
+        /// </summary>
+        private void UpdateWeatherData()
+        {
+            DisplayManager.ShowStatus("Updating", "Weather");
+            var newData = WeatherManager.FetchWeatherData(_settings);
+            if (newData != null)
+            {
+                _weatherData = newData;
+                _lastWeatherUpdate = DateTime.UtcNow;
+
+                DisplayManager.SetUtcOffset(_weatherData.UtcOffsetSeconds);
+                string unit = _settings.WeatherUnit == "imperial" ? "F" : "C";
+                DisplayManager.SetTemperature($"{Math.Round(_weatherData.Temperature)}°{unit}");
+
+                // Briefly show the city and temp as confirmation
+                Thread.Sleep(2500);
+            }
+            else
+            {
+                DisplayManager.ShowStatus("Update", "Failed");
+                Thread.Sleep(2500);
             }
         }
     }
 }
+

@@ -14,6 +14,7 @@ namespace WeatherClockApp.Models
         public double Longitude { get; set; }
         public int DisplayPanels { get; set; } = 8;
         public int PanelRotation { get; set; } = 2; // 0 = normal, 2 = 180 degrees
+        public string WeatherUnit { get; set; } = "imperial";
 
         /// <summary>
         /// Serializes the current instance to an INI-formatted string.
@@ -32,6 +33,7 @@ namespace WeatherClockApp.Models
             sb.AppendLine($"{nameof(Longitude)}={Longitude}");
             sb.AppendLine($"{nameof(DisplayPanels)}={DisplayPanels}");
             sb.AppendLine($"{nameof(PanelRotation)}={PanelRotation}");
+            sb.AppendLine($"{nameof(WeatherUnit)}={WeatherUnit}");
             return sb.ToString();
         }
 
@@ -47,6 +49,7 @@ namespace WeatherClockApp.Models
             {
                 return settings;
             }
+
             string[] lines = content.Split('\n');
             string sectionName = $"[{nameof(AppSettings)}]";
             bool inSection = false;
@@ -111,10 +114,14 @@ namespace WeatherClockApp.Models
                             case nameof(DisplayPanels):
                                 settings.DisplayPanels = int.TryParse(value, out var cnt) ? cnt : 0;
                                 break;
+                            case nameof(WeatherUnit):
+                                settings.WeatherUnit = value;
+                                break;
                         }
                     }
                 }
             }
+
             Console.WriteLine($"Settings null: {settings == null}");
             return settings;
         }
