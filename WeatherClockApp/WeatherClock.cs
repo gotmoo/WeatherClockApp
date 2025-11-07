@@ -8,26 +8,31 @@ using WeatherClockApp.Models;
 
 namespace WeatherClockApp
 {
-    /// <summary>
-    /// Represents the main operational logic of the weather clock.
-    /// This class is instantiated only after a successful network connection.
-    /// </summary>
     internal class WeatherClock
     {
         private readonly AppSettings _settings;
         private WeatherData _weatherData;
         private DateTime _lastWeatherUpdate = DateTime.MinValue;
         private DateTime _lastMinuteScroll = DateTime.MinValue;
-        private const int WeatherUpdateIntervalMinutes = 20;
+
+        // A flag to allow external triggers for weather updates
+        private static bool _forceWeatherUpdate = false;
 
         public WeatherClock(AppSettings settings)
         {
             _settings = settings;
         }
 
+        /// <summary>
+        /// Public method to allow the web server to trigger a weather update.
+        /// </summary>
+        public static void TriggerWeatherUpdate()
+        {
+            _forceWeatherUpdate = true;
+        }
+
         public void Run()
         {
-            // 1. Synchronize the time
             try
             {
                 DisplayManager.ShowStatus("Syncing", "Time");
@@ -42,68 +47,55 @@ namespace WeatherClockApp
                 Thread.Sleep(2000);
             }
 
-            // 2. Initial Weather Fetch
             UpdateWeatherData();
 
-            // 3. Main application loop
             while (true)
             {
                 DateTime now = DateTime.UtcNow;
 
-                // Check for periodic weather update
-                if ((now - _lastWeatherUpdate).TotalMinutes >= WeatherUpdateIntervalMinutes)
+                if (_forceWeatherUpdate || (now - _lastWeatherUpdate).TotalMinutes >= _settings.WeatherRefreshMinutes)
                 {
+                    _forceWeatherUpdate = false;
                     UpdateWeatherData();
                 }
 
-                // Check to start the once-per-minute description scroll
-                // We start it at 58 seconds to give it time to render before the minute ticks over
                 if (now.Second == 0 && (now - _lastMinuteScroll).TotalSeconds > 58)
                 {
-                    if (_weatherData != null && !string.IsNullOrEmpty(_weatherData.Description))
+                    if (_weatherData != null && !_weatherData.IsNullObject)
                     {
-                        string unit = _settings.WeatherUnit == "imperial" ? "F" : "C";
-                        string scrollText = $"{_weatherData.Description}, feels like {Math.Round(_weatherData.FeelsLike)}°{unit}";
+                        string scrollText = FormatWeatherString(_settings.WeatherDisplay, _weatherData);
                         DisplayManager.ScrollRightHalf(scrollText);
                         _lastMinuteScroll = now;
                     }
                 }
 
-                // Update the static display every second for the blinking colon
                 DisplayManager.ToggleColon();
                 DisplayManager.UpdateTimeAndTemp();
-
                 Thread.Sleep(1000);
             }
         }
 
-        /// <summary>
-        /// Fetches new weather data and updates the display manager.
-        /// </summary>
         private void UpdateWeatherData()
         {
             DisplayManager.ShowStatus("Updating", "Weather");
             var newData = WeatherManager.FetchWeatherData(_settings);
-            Console.WriteLine($"Fetched Weather Data: {!newData.IsNullObject} Temp: {newData.Temperature}");
+
             if (!newData.IsNullObject)
             {
                 _weatherData = newData;
                 _lastWeatherUpdate = DateTime.UtcNow;
 
-                // Check if the timezone has changed and save settings if it has.
                 if (_settings.TimeZoneOffset != _weatherData.UtcOffsetSeconds)
                 {
-                    Debug.WriteLine($"Timezone offset updated from {_settings.TimeZoneOffset} to {_weatherData.UtcOffsetSeconds}. Saving settings.");
                     _settings.TimeZoneOffset = _weatherData.UtcOffsetSeconds;
                     SettingsManager.Save(_settings);
                 }
 
                 DisplayManager.SetUtcOffset(_weatherData.UtcOffsetSeconds);
-                string unit = _settings.WeatherUnit == "imperial" ? "F" : "C";
-                DisplayManager.SetTemperature($"{Math.Round(_weatherData.Temperature)}°{unit}");
+                string tempString = FormatWeatherString("{temp}", _weatherData);
+                DisplayManager.SetTemperature(tempString);
 
-                // Briefly show the city and temp as confirmation
-                DisplayManager.ShowStatus(_weatherData.CityName, $"{Math.Round(_weatherData.Temperature)}°{unit}");
+                DisplayManager.ShowStatus(_weatherData.CityName, tempString);
                 Thread.Sleep(2500);
             }
             else
@@ -111,6 +103,33 @@ namespace WeatherClockApp
                 DisplayManager.ShowStatus("Update", "Failed");
                 Thread.Sleep(2500);
             }
+        }
+
+        /// <summary>
+        /// Replaces placeholders in a template string with actual weather data.
+        /// </summary>
+        private string FormatWeatherString(string template, WeatherData data)
+        {
+            string unit = _settings.WeatherUnit == "imperial" ? "F" : "C";
+            string degreeSymbol = _settings.ShowDegreesSymbol ? "°" : "";
+            string currentString = template;
+
+            currentString = ReplacePlaceholder(currentString, "{temp}", $"{Math.Round(data.Temperature)}{degreeSymbol}{unit}");
+            currentString = ReplacePlaceholder(currentString, "{feels_like}", $"{Math.Round(data.FeelsLike)}{degreeSymbol}{unit}");
+            currentString = ReplacePlaceholder(currentString, "{temp_min}", $"{Math.Round(data.TempMin)}{degreeSymbol}{unit}");
+            currentString = ReplacePlaceholder(currentString, "{temp_max}", $"{Math.Round(data.TempMax)}{degreeSymbol}{unit}");
+            currentString = ReplacePlaceholder(currentString, "{description}", data.Description);
+            currentString = ReplacePlaceholder(currentString, "{humidity}", $"{data.Humidity}%");
+            currentString = ReplacePlaceholder(currentString, "{city}", data.CityName);
+
+            return currentString;
+        }
+
+        private static string ReplacePlaceholder(string original, string placeholder, string value)
+        {
+            int index = original.IndexOf(placeholder);
+            if (index == -1) return original;
+            return original.Substring(0, index) + value + original.Substring(index + placeholder.Length);
         }
     }
 }

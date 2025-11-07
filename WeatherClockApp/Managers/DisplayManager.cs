@@ -34,8 +34,8 @@ namespace WeatherClockApp.Managers
             const int chipSelectPin = 5; // CS Pin must be hardcoded
 
             // Get hardware-specific pins for SPI1
-            Configuration.SetPinFunction(_settings.PanelClock, DeviceFunction.SPI1_MOSI); // GPIO21
-            Configuration.SetPinFunction(_settings.PanelMosi, DeviceFunction.SPI1_CLOCK); // GPIO22
+            Configuration.SetPinFunction(23, DeviceFunction.SPI1_MOSI); // GPIO23
+            Configuration.SetPinFunction(19, DeviceFunction.SPI1_CLOCK); // GPIO19
 
             Debug.WriteLine($"Using SPI pins: MOSI={_settings.PanelMosi}, CLK={_settings.PanelClock}, CS={chipSelectPin}");
 
