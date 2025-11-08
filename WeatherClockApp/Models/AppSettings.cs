@@ -14,7 +14,7 @@ namespace WeatherClockApp.Models
         public double Longitude { get; set; }
         public int DisplayPanels { get; set; } = 8;
         public int PanelRotation { get; set; } = 2; // 0 = normal, 2 = 180 degrees
-        public int PanelClock { get; set; } = 19;
+        public int PanelClock { get; set; } = 18;
         public int PanelMosi { get; set; } = 23;
         public int PanelBrightness { get; set; } = 1;
 
