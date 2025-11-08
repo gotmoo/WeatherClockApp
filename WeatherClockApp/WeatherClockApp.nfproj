@@ -37,9 +37,6 @@
     <Compile Include="WeatherClock.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Iot.Device.DhcpServer">
-      <HintPath>..\packages\nanoFramework.Iot.Device.DhcpServer.1.2.891\lib\Iot.Device.DhcpServer.dll</HintPath>
-    </Reference>
     <Reference Include="mscorlib">
       <HintPath>..\packages\nanoFramework.CoreLibrary.1.17.11\lib\mscorlib.dll</HintPath>
     </Reference>

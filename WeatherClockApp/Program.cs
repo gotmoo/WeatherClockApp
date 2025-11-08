@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Net;
 using System.Threading;
-using Iot.Device.DhcpServer;
+//using Iot.Device.DhcpServer;
 using nanoFramework.Runtime.Native;
 using WeatherClockApp.LightweightWeb;
 using WeatherClockApp.Managers;
@@ -13,7 +13,7 @@ namespace WeatherClockApp
     public class Program
     {
         private static LightweightWebServer _webServer;
-        private static DhcpServer _dhcpServer;
+        //private static DhcpServer _dhcpServer;
         private static DnsServer _dnsServer;
         private static AppSettings _settings;
 
@@ -40,14 +40,14 @@ namespace WeatherClockApp
                     Debug.WriteLine($"Access Point is ready. Starting servers...");
 
                     // Start DHCP Server
-                    _dhcpServer = new DhcpServer { CaptivePortalUrl = $"http://{NetworkManager.ApIpAddress}" };
-                    if (!_dhcpServer.Start(IPAddress.Parse(NetworkManager.ApIpAddress), new IPAddress(new byte[] { 255, 255, 255, 0 })))
-                    {
-                        Debug.WriteLine("FATAL: Failed to start DHCP server. Rebooting.");
-                        Thread.Sleep(1000);
-                        Power.RebootDevice();
-                    }
-                    Debug.WriteLine("DHCP Server started.");
+                    //_dhcpServer = new DhcpServer { CaptivePortalUrl = $"http://{NetworkManager.ApIpAddress}" };
+                    //if (!_dhcpServer.Start(IPAddress.Parse(NetworkManager.ApIpAddress), new IPAddress(new byte[] { 255, 255, 255, 0 })))
+                    //{
+                    //    Debug.WriteLine("FATAL: Failed to start DHCP server. Rebooting.");
+                    //    Thread.Sleep(1000);
+                    //    Power.RebootDevice();
+                    //}
+                    Debug.WriteLine("DHCP Server started (if it would have been here).");
 
                     // Start DNS Server
                     _dnsServer = new DnsServer(IPAddress.Parse(NetworkManager.ApIpAddress));
