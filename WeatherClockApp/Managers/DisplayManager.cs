@@ -34,10 +34,13 @@ namespace WeatherClockApp.Managers
             const int chipSelectPin = 5; // CS Pin must be hardcoded
 
             // Get hardware-specific pins for SPI1
-            Configuration.SetPinFunction(23, DeviceFunction.SPI1_MOSI); // GPIO21
-            Configuration.SetPinFunction(19, DeviceFunction.SPI1_CLOCK); // GPIO22
+            //Configuration.SetPinFunction(23, DeviceFunction.SPI1_MOSI); // GPIO21
+            //Configuration.SetPinFunction(19, DeviceFunction.SPI1_CLOCK); // GPIO22
+            Configuration.SetPinFunction(23, DeviceFunction.SPI1_MOSI);
+            Configuration.SetPinFunction(19, DeviceFunction.SPI1_MISO); //miso not actually used, but defined anyway
+            Configuration.SetPinFunction(18, DeviceFunction.SPI1_CLOCK);
 
-            Debug.WriteLine($"Using SPI pins: MOSI=23, CLK=19, CS={chipSelectPin}");
+            Debug.WriteLine($"Using SPI pins: MOSI=23, CLK=18, CS={chipSelectPin}");
 
             var spiSettings = new SpiConnectionSettings(spiBus, chipSelectPin)
             {
@@ -56,7 +59,8 @@ namespace WeatherClockApp.Managers
             _displayDriver = new Max7219.Max7219(spiDevice, _settings.DisplayPanels);
             Console.WriteLine("Created display driver.");
 
-            _displayDriver.Rotation = _settings.PanelRotation;
+            //_displayDriver.Rotation = _settings.PanelRotation;
+            _displayDriver.Rotation = 2;
             _displayDriver.Init();
             Console.WriteLine("Display initialized.");
             _displayDriver.SetIntensity(1);
