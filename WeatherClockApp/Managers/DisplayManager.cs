@@ -32,17 +32,20 @@ namespace WeatherClockApp.Managers
 
             const int spiBus = 1;
             const int chipSelectPin = 5; // CS Pin must be hardcoded
-
+            int csPin = Gpio.IO06;
             // Get hardware-specific pins for SPI1
             //Configuration.SetPinFunction(23, DeviceFunction.SPI1_MOSI); // GPIO21
             //Configuration.SetPinFunction(19, DeviceFunction.SPI1_CLOCK); // GPIO22
-            Configuration.SetPinFunction(23, DeviceFunction.SPI1_MOSI);
-            Configuration.SetPinFunction(19, DeviceFunction.SPI1_MISO); //miso not actually used, but defined anyway
-            Configuration.SetPinFunction(18, DeviceFunction.SPI1_CLOCK);
+            //Configuration.SetPinFunction(23, DeviceFunction.SPI1_MOSI);
+            //Configuration.SetPinFunction(19, DeviceFunction.SPI1_MISO); //miso not actually used, but defined anyway
+            //Configuration.SetPinFunction(18, DeviceFunction.SPI1_CLOCK);
+            Configuration.SetPinFunction(Gpio.IO02, DeviceFunction.SPI1_MOSI);
+            Configuration.SetPinFunction(Gpio.IO03, DeviceFunction.SPI1_MISO); //miso not actually used, but defined anyway
+            Configuration.SetPinFunction(Gpio.IO04, DeviceFunction.SPI1_CLOCK);
 
-            Debug.WriteLine($"Using SPI pins: MOSI=23, CLK=18, CS={chipSelectPin}");
+            Debug.WriteLine($"Using SPI pins: MOSI={Gpio.IO02}, CLK={Gpio.IO04}], CS={csPin}");
 
-            var spiSettings = new SpiConnectionSettings(spiBus, chipSelectPin)
+            var spiSettings = new SpiConnectionSettings(spiBus, csPin)
             {
                 Mode = SpiMode.Mode0,
                 ClockFrequency = 1_000_000
@@ -71,6 +74,14 @@ namespace WeatherClockApp.Managers
 
             Console.WriteLine("DisplayManager initialized.");
         }
+        static int PinNumber(char port, byte pin)
+        {
+            if (port < 'A' || port > 'J')
+                throw new ArgumentException();
+
+            return ((port - 'A') * 16) + pin;
+        }
+
         public static void SetUtcOffset(int seconds) => _utcOffsetSeconds = seconds;
         public static void ToggleColon() => _isColonVisible = !_isColonVisible;
         public static void SetTemperature(string newTemperature) => _temperature = newTemperature;
