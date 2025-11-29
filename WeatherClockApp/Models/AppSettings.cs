@@ -16,7 +16,9 @@ namespace WeatherClockApp.Models
         public int PanelRotation { get; set; } = 2; // 0 = normal, 2 = 180 degrees
         public int PanelBrightness { get; set; } = 1;
         public bool PanelReversed { get; set; } = false;
+        public bool ShowDegreesSymbol { get; set; } = true;
         public string WeatherUnit { get; set; } = "imperial";
+        public int WeatherRefreshMinutes { get; set; } = 20;
 
         /// <summary>
         /// Serializes the current instance to an INI-formatted string.
@@ -38,6 +40,8 @@ namespace WeatherClockApp.Models
             sb.AppendLine($"{nameof(PanelBrightness)}={PanelBrightness}");
             sb.AppendLine($"{nameof(PanelReversed)}={PanelReversed}");
             sb.AppendLine($"{nameof(WeatherUnit)}={WeatherUnit}");
+            sb.AppendLine($"{nameof(WeatherRefreshMinutes)}={WeatherRefreshMinutes}");
+            sb.AppendLine($"{nameof(ShowDegreesSymbol)}={ShowDegreesSymbol}");
             return sb.ToString();
         }
 
@@ -121,11 +125,17 @@ namespace WeatherClockApp.Models
                             case nameof(DisplayPanels):
                                 settings.DisplayPanels = int.TryParse(value, out var cnt) ? cnt : 0;
                                 break;
-                            case nameof(PanelReversed):
+                             case nameof(PanelReversed):
                                 settings.PanelReversed = value.ToLower() == "true" || value == "1";
+                                break;
+                            case nameof(ShowDegreesSymbol):
+                                settings.ShowDegreesSymbol = value.ToLower() == "true" || value == "1";
                                 break;
                             case nameof(WeatherUnit):
                                 settings.WeatherUnit = value;
+                                break;
+                            case nameof(WeatherRefreshMinutes):
+                                settings.WeatherRefreshMinutes = int.TryParse(value, out var refreshMinutes) ? refreshMinutes : 0;
                                 break;
                         }
                     }

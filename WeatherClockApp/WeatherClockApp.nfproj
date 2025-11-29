@@ -20,6 +20,10 @@
   <ItemGroup>
     <Compile Include="Display\Max7219.cs" />
     <Compile Include="Display\Fonts.cs" />
+    <Compile Include="Fonts\FixedSizeFont.cs" />
+    <Compile Include="Fonts\Fonts.cs" />
+    <Compile Include="Fonts\IFont.cs" />
+    <Compile Include="Fonts\ListByte.cs" />
     <Compile Include="Helpers\MiniJsonParser.cs" />
     <Compile Include="LightweightWeb\WebServerPages.cs" />
     <Compile Include="Helpers\WebUtility.cs" />
@@ -97,9 +101,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Fonts\" />
   </ItemGroup>
   <Import Project="$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets" Condition="Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets')" />
   <ProjectExtensions>
