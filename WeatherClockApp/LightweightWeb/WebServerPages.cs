@@ -23,7 +23,7 @@ namespace WeatherClockApp.LightweightWeb
         h1, h2 { color: #1c1e21; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 20px; }
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; }
-        input[type='text'], input[type='password'], input[type='number'] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        input[type='text'], input[type='password'], input[type='number'], select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
         .btn { background-color: #007bff; color: #fff; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }
         .btn-secondary { background-color: #6c757d; }
         .btn-secondary:hover { background-color: #5a6268; }
@@ -37,6 +37,7 @@ namespace WeatherClockApp.LightweightWeb
         .radio-label:hover { background-color: #f0f2f5; }
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 2s linear infinite; display: none; margin: 10px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .hint { font-size: 0.8em; color: #666; margin-top: 4px; display: block; }
     </style>
 </head>
 <body>
@@ -106,6 +107,55 @@ namespace WeatherClockApp.LightweightWeb
             WriteChunk(stream, settings.Longitude.ToString());
             WriteChunk(stream, @"'>
                 </div>
+
+                <!-- Panel Settings -->
+                <div class='form-group'>
+                    <label for='displayPanels'>Panel Count</label>
+                    <select id='displayPanels' name='displayPanels'>
+                        <option value='4'");
+            if (settings.DisplayPanels == 4) WriteChunk(stream, " selected");
+            WriteChunk(stream, @">4 Panels</option>
+                        <option value='8'");
+            if (settings.DisplayPanels != 4) WriteChunk(stream, " selected"); // Default to 8
+            WriteChunk(stream, @">8 Panels</option>
+                    </select>
+                </div>
+
+                <div class='form-group'>
+                    <label for='panelRotation'>Panel Rotation</label>
+                    <select id='panelRotation' name='panelRotation'>
+                        <option value='0'");
+            if (settings.PanelRotation == 0) WriteChunk(stream, " selected");
+            WriteChunk(stream, @">0 - Normal</option>
+                        <option value='1'");
+            if (settings.PanelRotation == 1) WriteChunk(stream, " selected");
+            WriteChunk(stream, @">1 - 90&deg;</option>
+                        <option value='2'");
+            if (settings.PanelRotation == 2) WriteChunk(stream, " selected");
+            WriteChunk(stream, @">2 - 180&deg;</option>
+                        <option value='3'");
+            if (settings.PanelRotation == 3) WriteChunk(stream, " selected");
+            WriteChunk(stream, @">3 - 270&deg;</option>
+                    </select>
+                </div>
+
+                <div class='form-group'>
+                    <label for='panelReversed' class='inline-group'>
+                        Reverse Panel Order
+                        <input type='checkbox' id='panelReversed' name='panelReversed' style='width:auto; margin-left:10px;' value='true'");
+            if (settings.PanelReversed) WriteChunk(stream, " checked");
+            WriteChunk(stream, @">
+                    </label>
+                    <span class='hint'>Check this if your panel order is flipped (e.g. 50:32 instead of 23:05).</span>
+                </div>
+
+                <div class='form-group'>
+                    <label for='panelBrightness'>Brightness (0-15)</label>
+                    <input type='number' id='panelBrightness' name='panelBrightness' min='0' max='15' value='");
+            WriteChunk(stream, settings.PanelBrightness.ToString());
+            WriteChunk(stream, @"'>
+                </div>
+
                 <button type='submit' class='btn'>Save App Settings</button>
             </form>
         </div>
@@ -278,4 +328,3 @@ namespace WeatherClockApp.LightweightWeb
         }
     }
 }
-

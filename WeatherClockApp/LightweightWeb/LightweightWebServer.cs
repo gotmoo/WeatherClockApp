@@ -1,7 +1,6 @@
 ﻿using nanoFramework.Runtime.Native;
 using System;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -144,10 +143,6 @@ namespace WeatherClockApp.LightweightWeb
                             var content = WeatherManager.GeoLocate(location, _settings.WeatherApiKey);
                             SendResponse(stream, "200 OK", "application/json", content);
                         }
-                        else if (url == "/favicon.ico")
-                        {
-                            SendResponse(stream, "404 Not Found", "text/plain", "");
-                        }
                         else
                         {
                             SendRedirectResponse(stream, "/");
@@ -265,6 +260,12 @@ namespace WeatherClockApp.LightweightWeb
         private void ParseAppSettingsFormData(string formData)
         {
             var pairs = formData.Split('&');
+
+            // IMPORTANT: HTML forms do NOT submit unchecked checkboxes.
+            // We must reset this to false before parsing. If the box is checked, 
+            // the "panelReversed" key will appear in the loop and set it to true.
+            _settings.PanelReversed = false;
+
             foreach (var pair in pairs)
             {
                 var keyValue = pair.Split('=');
@@ -279,10 +280,14 @@ namespace WeatherClockApp.LightweightWeb
                         case "locationName": _settings.LocationName = value; break;
                         case "latitude": double.TryParse(value, out var lat); _settings.Latitude = lat; break;
                         case "longitude": double.TryParse(value, out var lon); _settings.Longitude = lon; break;
+                        // --- Re-added missing fields ---
+                        case "displayPanels": int.TryParse(value, out var panels); _settings.DisplayPanels = panels; break;
+                        case "panelRotation": int.TryParse(value, out var rot); _settings.PanelRotation = rot; break;
+                        case "panelBrightness": int.TryParse(value, out var bri); _settings.PanelBrightness = bri; break;
+                        case "panelReversed": _settings.PanelReversed = value == "true"; break;
                     }
                 }
             }
         }
     }
 }
-

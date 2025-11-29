@@ -36,6 +36,12 @@ namespace Max7219
         public int Rotation { get; set; } = 0;
 
         /// <summary>
+        /// Gets or sets whether the order of panels is reversed.
+        /// If true, the first logical panel is sent to the furthest physical device.
+        /// </summary>
+        public bool PanelOrderReversed { get; set; } = false;
+
+        /// <summary>
         /// Initializes a new instance of the MAX7219 driver.
         /// </summary>
         /// <param name="spiDevice">The SPI device for communication.</param>
@@ -152,8 +158,21 @@ namespace Max7219
                 var spiBuffer = new byte[_deviceCount * 2];
                 int spiIndex = 0;
 
-                for (int device = _deviceCount - 1; device >= 0; device--)
+                // Loop through devices.
+                // If PanelOrderReversed is FALSE (Default):
+                // We iterate from _deviceCount - 1 down to 0. 
+                // The first data sent (index _deviceCount-1) is pushed to the furthest device in the chain.
+                // The last data sent (index 0) stays in the first device (closest to MCU).
+                //
+                // If PanelOrderReversed is TRUE:
+                // We iterate from 0 up to _deviceCount - 1.
+                // The first data sent (index 0) is pushed to the furthest device.
+                // This effectively swaps the display order of the panels.
+
+                for (int i = 0; i < _deviceCount; i++)
                 {
+                    int device = PanelOrderReversed ? i : (_deviceCount - 1 - i);
+
                     spiBuffer[spiIndex++] = (byte)(RegDigit0 + row);
                     byte rowData = 0;
                     for (int col = 0; col < 8; col++)
@@ -191,4 +210,3 @@ namespace Max7219
         }
     }
 }
-

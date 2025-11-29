@@ -14,6 +14,8 @@ namespace WeatherClockApp.Models
         public double Longitude { get; set; }
         public int DisplayPanels { get; set; } = 8;
         public int PanelRotation { get; set; } = 2; // 0 = normal, 2 = 180 degrees
+        public int PanelBrightness { get; set; } = 1;
+        public bool PanelReversed { get; set; } = false;
         public string WeatherUnit { get; set; } = "imperial";
 
         /// <summary>
@@ -33,6 +35,8 @@ namespace WeatherClockApp.Models
             sb.AppendLine($"{nameof(Longitude)}={Longitude}");
             sb.AppendLine($"{nameof(DisplayPanels)}={DisplayPanels}");
             sb.AppendLine($"{nameof(PanelRotation)}={PanelRotation}");
+            sb.AppendLine($"{nameof(PanelBrightness)}={PanelBrightness}");
+            sb.AppendLine($"{nameof(PanelReversed)}={PanelReversed}");
             sb.AppendLine($"{nameof(WeatherUnit)}={WeatherUnit}");
             return sb.ToString();
         }
@@ -111,8 +115,14 @@ namespace WeatherClockApp.Models
                             case nameof(PanelRotation):
                                 settings.PanelRotation = int.TryParse(value, out var rotation) ? rotation : 0;
                                 break;
+                            case nameof(PanelBrightness):
+                                settings.PanelBrightness = int.TryParse(value, out var brightness) ? brightness : 0;
+                                break;
                             case nameof(DisplayPanels):
                                 settings.DisplayPanels = int.TryParse(value, out var cnt) ? cnt : 0;
+                                break;
+                            case nameof(PanelReversed):
+                                settings.PanelReversed = value.ToLower() == "true" || value == "1";
                                 break;
                             case nameof(WeatherUnit):
                                 settings.WeatherUnit = value;

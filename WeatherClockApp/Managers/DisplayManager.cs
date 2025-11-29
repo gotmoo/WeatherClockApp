@@ -31,17 +31,10 @@ namespace WeatherClockApp.Managers
             _settings = settings;
 
             const int spiBus = 1;
-            const int chipSelectPin = 5; // CS Pin must be hardcoded
-            int csPin = Gpio.IO06;
-            // Get hardware-specific pins for SPI1
-            //Configuration.SetPinFunction(23, DeviceFunction.SPI1_MOSI); // GPIO21
-            //Configuration.SetPinFunction(19, DeviceFunction.SPI1_CLOCK); // GPIO22
-            //Configuration.SetPinFunction(23, DeviceFunction.SPI1_MOSI);
-            //Configuration.SetPinFunction(19, DeviceFunction.SPI1_MISO); //miso not actually used, but defined anyway
-            //Configuration.SetPinFunction(18, DeviceFunction.SPI1_CLOCK);
-            Configuration.SetPinFunction(Gpio.IO02, DeviceFunction.SPI1_MOSI);
-            Configuration.SetPinFunction(Gpio.IO03, DeviceFunction.SPI1_MISO); //miso not actually used, but defined anyway
-            Configuration.SetPinFunction(Gpio.IO04, DeviceFunction.SPI1_CLOCK);
+            int csPin = Gpio.IO17;
+            Configuration.SetPinFunction(Gpio.IO18, DeviceFunction.SPI1_MOSI);
+            Configuration.SetPinFunction(Gpio.IO20, DeviceFunction.SPI1_MISO); //miso not actually used, but defined anyway
+            Configuration.SetPinFunction(Gpio.IO19, DeviceFunction.SPI1_CLOCK);
 
             Debug.WriteLine($"Using SPI pins: MOSI={Gpio.IO02}, CLK={Gpio.IO04}], CS={csPin}");
 
@@ -54,19 +47,15 @@ namespace WeatherClockApp.Managers
             var spiDevice = new SpiDevice(spiSettings);
             Console.WriteLine("SPI initialized.");
 
-            //Blank config guard
-            if (_settings.DisplayPanels == 0) _settings.DisplayPanels = 8;
-            if (_settings.PanelRotation == 0) _settings.PanelRotation = 2;
-            Console.WriteLine("Blank Config guarded.");
-
             _displayDriver = new Max7219.Max7219(spiDevice, _settings.DisplayPanels);
             Console.WriteLine("Created display driver.");
 
-            //_displayDriver.Rotation = _settings.PanelRotation;
-            _displayDriver.Rotation = 2;
+            _displayDriver.Rotation = _settings.PanelRotation;
+            _displayDriver.PanelOrderReversed = _settings.PanelReversed; // Apply reversed setting
             _displayDriver.Init();
+
             Console.WriteLine("Display initialized.");
-            _displayDriver.SetIntensity(1);
+            _displayDriver.SetIntensity((byte)_settings.PanelBrightness);
 
             _screenWidth = _settings.DisplayPanels * 8;
             _displayBuffer = new byte[_screenWidth];
