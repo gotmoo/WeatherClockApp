@@ -19,7 +19,7 @@
   <Import Project="$(NanoFrameworkProjectSystemPath)NFProjectSystem.props" Condition="Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.props')" />
   <ItemGroup>
     <Compile Include="Display\Max7219.cs" />
-    <Compile Include="Display\Fonts.cs" />
+    <Compile Include="Fonts\Font1.cs" />
     <Compile Include="Fonts\FixedSizeFont.cs" />
     <Compile Include="Fonts\Fonts.cs" />
     <Compile Include="Fonts\IFont.cs" />

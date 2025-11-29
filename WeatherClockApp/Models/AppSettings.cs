@@ -19,6 +19,7 @@ namespace WeatherClockApp.Models
         public bool ShowDegreesSymbol { get; set; } = true;
         public string WeatherUnit { get; set; } = "imperial";
         public int WeatherRefreshMinutes { get; set; } = 20;
+        public string FontName { get; set; } = "Default"; // Default, LCD, Sinclair, Tiny, Cyrillic
 
         /// <summary>
         /// Serializes the current instance to an INI-formatted string.
@@ -42,6 +43,7 @@ namespace WeatherClockApp.Models
             sb.AppendLine($"{nameof(WeatherUnit)}={WeatherUnit}");
             sb.AppendLine($"{nameof(WeatherRefreshMinutes)}={WeatherRefreshMinutes}");
             sb.AppendLine($"{nameof(ShowDegreesSymbol)}={ShowDegreesSymbol}");
+            sb.AppendLine($"{nameof(FontName)}={FontName}");
             return sb.ToString();
         }
 
@@ -91,7 +93,7 @@ namespace WeatherClockApp.Models
                     {
                         string key = line.Substring(0, separatorIndex).Trim();
                         string value = line.Substring(separatorIndex + 1).Trim();
-                        Console.WriteLine($"Key: {key}, Value: {value}");
+                        // Console.WriteLine($"Key: {key}, Value: {value}");
                         // Use a switch for efficient property setting
                         switch (key)
                         {
@@ -125,7 +127,7 @@ namespace WeatherClockApp.Models
                             case nameof(DisplayPanels):
                                 settings.DisplayPanels = int.TryParse(value, out var cnt) ? cnt : 0;
                                 break;
-                             case nameof(PanelReversed):
+                            case nameof(PanelReversed):
                                 settings.PanelReversed = value.ToLower() == "true" || value == "1";
                                 break;
                             case nameof(ShowDegreesSymbol):
@@ -136,6 +138,9 @@ namespace WeatherClockApp.Models
                                 break;
                             case nameof(WeatherRefreshMinutes):
                                 settings.WeatherRefreshMinutes = int.TryParse(value, out var refreshMinutes) ? refreshMinutes : 0;
+                                break;
+                            case nameof(FontName):
+                                settings.FontName = value;
                                 break;
                         }
                     }

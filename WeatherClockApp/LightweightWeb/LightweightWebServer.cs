@@ -120,6 +120,8 @@ namespace WeatherClockApp.LightweightWeb
                         {
                             ParseAppSettingsFormData(body);
                             SettingsUpdated?.Invoke(this, _settings);
+                            // Also update the display manager immediately
+                            DisplayManager.SetFont(_settings.FontName);
                             SendRedirectResponse(stream, "/");
                         }
                         else if (url == "/reboot")
@@ -285,6 +287,7 @@ namespace WeatherClockApp.LightweightWeb
                         case "panelRotation": int.TryParse(value, out var rot); _settings.PanelRotation = rot; break;
                         case "panelBrightness": int.TryParse(value, out var bri); _settings.PanelBrightness = bri; break;
                         case "panelReversed": _settings.PanelReversed = value == "true"; break;
+                        case "fontName": _settings.FontName = value; break;
                     }
                 }
             }

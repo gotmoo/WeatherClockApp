@@ -1,25 +1,19 @@
 ﻿using System.Collections;
 
-namespace WeatherClockApp.Display
+namespace WeatherClockApp.Fonts
 {
     /// <summary>
-    /// Contains the character definitions for the 8x8 LED matrix display.
-    /// Each character is defined by a byte array, where each byte represents a vertical column of pixels.
+    /// Implementation of IFont for the original variable-width Font1.
+    /// This wraps the original Hashtable character definitions in an IFont compatible class.
     /// </summary>
-    public class SelectedFont
+    public class Font1 : IFont
     {
-        public void LoadCharacters(Hashtable newCharacters)
-        {
-            Characters = newCharacters;
-        }
-        public Hashtable Characters { get; private set; }
-    }
+        // Cache the space character data to avoid repeated lookups/allocations for fallbacks
+        private static readonly byte[] _spaceBytes = new byte[] { 0x00, 0x00 };
 
-    public static class Font1
-    {
-        public static readonly Hashtable Characters = new Hashtable()
+        private static readonly Hashtable _characters = new Hashtable()
         {
-            { ' ', new byte[] { 0x00, 0x00 } },
+            { ' ', _spaceBytes },
             { '!', new byte[] { 0x5F, 0x00 } },
             { '"', new byte[] { 0x03, 0x00, 0x03, 0x00 } },
             { '#', new byte[] { 0x14, 0x3E, 0x14, 0x3E, 0x14, 0x00 } },
@@ -117,5 +111,19 @@ namespace WeatherClockApp.Display
             { '°', new byte[] { 0x02, 0x05, 0x02, 0x00 } },
             { ' ', new byte[] { 0x00 } }, //non-breaking space alt+0160
         };
+
+        public ListByte this[char chr]
+        {
+            get
+            {
+                if (_characters.Contains(chr))
+                {
+                    return new ListByte((byte[])_characters[chr]);
+                }
+
+                // Return space if character not found to prevent crashes
+                return new ListByte(_spaceBytes);
+            }
+        }
     }
 }

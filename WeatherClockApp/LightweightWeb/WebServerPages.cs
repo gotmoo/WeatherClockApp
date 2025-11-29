@@ -121,6 +121,31 @@ namespace WeatherClockApp.LightweightWeb
                     </select>
                 </div>
 
+                <!-- Font Settings -->
+                <div class='form-group'>
+                    <label for='fontName'>Clock Font</label>
+                    <select id='fontName' name='fontName'>
+                        <option value='Default'");
+            if (settings.FontName == "Default") WriteChunk(stream, " selected");
+            WriteChunk(stream, @">Default (CP437)</option>
+                        <option value='Font1'");
+            if (settings.FontName == "Font1") WriteChunk(stream, " selected");
+            WriteChunk(stream, @">Font1</option>
+                        <option value='LCD'");
+            if (settings.FontName == "LCD") WriteChunk(stream, " selected");
+            WriteChunk(stream, @">LCD Style</option>
+                        <option value='Sinclair'");
+            if (settings.FontName == "Sinclair") WriteChunk(stream, " selected");
+            WriteChunk(stream, @">Sinclair</option>
+                        <option value='Tiny'");
+            if (settings.FontName == "Tiny") WriteChunk(stream, " selected");
+            WriteChunk(stream, @">Tiny (Small Text)</option>
+                         <option value='Cyrillic'");
+            if (settings.FontName == "Cyrillic") WriteChunk(stream, " selected");
+            WriteChunk(stream, @">Cyrillic / Ukrainian</option>
+                    </select>
+                </div>
+
                 <div class='form-group'>
                     <label for='panelRotation'>Panel Rotation</label>
                     <select id='panelRotation' name='panelRotation'>

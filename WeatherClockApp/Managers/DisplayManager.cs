@@ -4,7 +4,7 @@ using System.Collections;
 using System.Device.Spi;
 using System.Diagnostics;
 using System.Threading;
-using WeatherClockApp.Display;
+using WeatherClockApp.Fonts; // Updated namespace
 using WeatherClockApp.Models;
 
 namespace WeatherClockApp.Managers
@@ -16,7 +16,9 @@ namespace WeatherClockApp.Managers
         private static int _screenWidth;
         private const int ScreenHeight = 8;
         private static byte[] _displayBuffer;
-        private static Hashtable _selectedFont;
+
+        // Changed from Hashtable to IFont interface
+        private static IFont _selectedFont;
 
         private static bool _isScrolling = false;
         private static Thread _scrollThread;
@@ -59,10 +61,42 @@ namespace WeatherClockApp.Managers
 
             _screenWidth = _settings.DisplayPanels * 8;
             _displayBuffer = new byte[_screenWidth];
-            _selectedFont = Font1.Characters; // Default to Font1
+
+            // Select Font based on settings
+            SetFont(_settings.FontName);
 
             Console.WriteLine("DisplayManager initialized.");
         }
+
+        public static void SetFont(string fontName)
+        {
+            switch (fontName?.ToLower())
+            {
+                case "lcd":
+                    _selectedFont = Fonts.Fonts.LCD;
+                    break;
+                case "sinclair":
+                    _selectedFont = Fonts.Fonts.Sinclair;
+                    break;
+                case "tiny":
+                    _selectedFont = Fonts.Fonts.Tiny;
+                    break;
+                case "cyrillic":
+                case "cyrillicukrainian":
+                    _selectedFont = Fonts.Fonts.CyrillicUkrainian;
+                    break;
+                case "font1":
+                    _selectedFont = new Font1();
+                    break;
+                case "default":
+                case "cp437":
+                default:
+                    _selectedFont = Fonts.Fonts.Default;
+                    break;
+            }
+            Console.WriteLine($"Font set to: {fontName}");
+        }
+
         static int PinNumber(char port, byte pin)
         {
             if (port < 'A' || port > 'J')
@@ -232,10 +266,9 @@ namespace WeatherClockApp.Managers
             int width = 0;
             foreach (char c in text)
             {
-                if (_selectedFont.Contains(c))
-                {
-                    width += ((byte[])_selectedFont[c]).Length + 1; // +1 for spacing
-                }
+                // The new IFont indexer returns a ListByte containing the columns
+                var charData = _selectedFont[c];
+                width += charData.Count + 1; // +1 for spacing
             }
             return width > 0 ? width - 1 : 0; // No spacing after last char
         }
@@ -251,19 +284,18 @@ namespace WeatherClockApp.Managers
 
         private static int DrawChar(char c, int x, int y)
         {
-            if (_selectedFont.Contains(c))
+            // Access character data via the IFont interface
+            var charData = _selectedFont[c];
+
+            // Iterate through the ListByte
+            for (int i = 0; i < charData.Count; i++)
             {
-                byte[] charData = (byte[])_selectedFont[c];
-                for (int i = 0; i < charData.Length; i++)
+                if (x + i >= 0 && x + i < _screenWidth)
                 {
-                    if (x + i >= 0 && x + i < _screenWidth)
-                    {
-                        _displayBuffer[x + i] = charData[i];
-                    }
+                    _displayBuffer[x + i] = charData[i];
                 }
-                return charData.Length;
             }
-            return 0;
+            return charData.Count;
         }
 
         private static void RenderTextToBuffer(string text, int x, int y, byte[] buffer)
@@ -271,18 +303,15 @@ namespace WeatherClockApp.Managers
             int currentX = x;
             foreach (char c in text)
             {
-                if (_selectedFont.Contains(c))
+                var charData = _selectedFont[c];
+                for (int i = 0; i < charData.Count; i++)
                 {
-                    byte[] charData = (byte[])_selectedFont[c];
-                    for (int i = 0; i < charData.Length; i++)
+                    if (currentX + i >= 0 && currentX + i < buffer.Length)
                     {
-                        if (currentX + i >= 0 && currentX + i < buffer.Length)
-                        {
-                            buffer[currentX + i] = charData[i];
-                        }
+                        buffer[currentX + i] = charData[i];
                     }
-                    currentX += charData.Length + 1; // +1 for spacing
                 }
+                currentX += charData.Count + 1; // +1 for spacing
             }
         }
 
