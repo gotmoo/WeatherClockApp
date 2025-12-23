@@ -28,14 +28,15 @@ namespace WeatherClockApp
 
                 // Initialize the display as early as possible
                 DisplayManager.Initialize(_settings);
-                DisplayManager.ShowStatus("Hello", "World");
+                DisplayManager.TakeoffSequence();
+
 
 
                 if (!NetworkManager.Initialize(_settings))
                 {
                     // Configuration Mode
                     Debug.WriteLine("Could not connect to Wi-Fi. Starting in Configuration Mode.");
-                    NetworkManager.StartAccessPoint();
+                    var apName = NetworkManager.StartAccessPoint();
 
                     Debug.WriteLine($"Access Point is ready. Starting servers...");
 
@@ -54,12 +55,13 @@ namespace WeatherClockApp
                     _dnsServer.Start();
                     Debug.WriteLine("DNS Server started.");
 
-                    // Start Web Server
-                    _webServer = new LightweightWebServer(_settings);
+                    // Start Web Server in AP Mode (true)
+                    _webServer = new LightweightWebServer(_settings, true);
                     _webServer.SettingsUpdated += OnSettingsUpdated; // Subscribe to the event
                     _webServer.Start(NetworkManager.ApIpAddress);
                     Debug.WriteLine("Web Server started.");
                     Debug.WriteLine($"Connect to SSID '{NetworkManager.ApSsid}' to configure.");
+                    DisplayManager.DisplayApInfo(apName, NetworkManager.ApIpAddress);
 
                 }
                 else
@@ -67,10 +69,12 @@ namespace WeatherClockApp
                     // Normal Mode
                     Debug.WriteLine($"Successfully connected to Wi-Fi with IP {NetworkManager.IpAddress}");
 
-                    _webServer = new LightweightWebServer(_settings);
+                    // Start Web Server in Normal Mode (false)
+                    _webServer = new LightweightWebServer(_settings, false);
                     _webServer.Start(NetworkManager.IpAddress);
                     _webServer.SettingsUpdated += OnSettingsUpdated; // Subscribe to the event
                     Debug.WriteLine("Web Server started for remote management.");
+                    DisplayManager.DisplayConfigInfo(NetworkManager.IpAddress);
 
                     var clock = new WeatherClock(_settings);
                     clock.Run();
@@ -92,4 +96,3 @@ namespace WeatherClockApp
         }
     }
 }
-

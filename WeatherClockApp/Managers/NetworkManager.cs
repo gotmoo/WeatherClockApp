@@ -62,7 +62,7 @@ namespace WeatherClockApp.Managers
         /// <summary>
         /// Starts the ESP32 in Access Point mode and waits for it to be ready.
         /// </summary>
-        public static void StartAccessPoint()
+        public static string StartAccessPoint()
         {
             // Configure the AP. This may trigger a reboot if settings are new.
             if (SetupAPConfiguration() == false)
@@ -81,7 +81,8 @@ namespace WeatherClockApp.Managers
                 if (ni != null && ni.IPv4Address == ApIpAddress)
                 {
                     Debug.WriteLine($"Access Point is active with IP {ni.IPv4Address}.");
-                    return; // AP is ready, exit the method.
+                    var apConfig = GetAPConfiguration();
+                    return apConfig.Ssid; // AP is ready, exit the method.
                 }
 
                 Thread.Sleep(500);
@@ -90,6 +91,7 @@ namespace WeatherClockApp.Managers
 
             Debug.WriteLine("FATAL: Timed out waiting for Access Point interface. Rebooting.");
             Power.RebootDevice();
+            return ""; // This line will never be reached but satisfies the compiler.
         }
 
         /// <summary>
@@ -129,7 +131,9 @@ namespace WeatherClockApp.Managers
 
             ni.EnableStaticIPv4(ApIpAddress, "255.255.255.0", ApIpAddress);
 
-            wapconf.Options = WirelessAPConfiguration.ConfigurationOptions.AutoStart | WirelessAPConfiguration.ConfigurationOptions.Enable;
+            wapconf.Options = WirelessAPConfiguration.ConfigurationOptions.AutoStart | 
+                              WirelessAPConfiguration.ConfigurationOptions.Enable;
+            
             wapconf.Ssid = ApSsid;
             wapconf.MaxConnections = 1;
             wapconf.Authentication = AuthenticationType.Open;

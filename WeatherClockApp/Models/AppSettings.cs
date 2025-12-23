@@ -19,6 +19,16 @@ namespace WeatherClockApp.Models
         public bool ShowDegreesSymbol { get; set; } = true;
         public string WeatherUnit { get; set; } = "imperial";
         public int WeatherRefreshMinutes { get; set; } = 20;
+        public string FontName { get; set; } = "Default"; // Default, LCD, Sinclair, Tiny, Cyrillic
+
+        // --- Clock & Weather Display Settings ---
+        public bool Is24HourFormat { get; set; } = true;
+        public int ScrollFrequencyMinutes { get; set; } = 1;
+        public bool ShowFeelsLike { get; set; } = true;
+        public bool ShowMinTemp { get; set; } = false;
+        public bool ShowMaxTemp { get; set; } = false;
+        public bool ShowHumidity { get; set; } = false;
+        public bool ShowDescription { get; set; } = true;
 
         /// <summary>
         /// Serializes the current instance to an INI-formatted string.
@@ -42,6 +52,15 @@ namespace WeatherClockApp.Models
             sb.AppendLine($"{nameof(WeatherUnit)}={WeatherUnit}");
             sb.AppendLine($"{nameof(WeatherRefreshMinutes)}={WeatherRefreshMinutes}");
             sb.AppendLine($"{nameof(ShowDegreesSymbol)}={ShowDegreesSymbol}");
+            sb.AppendLine($"{nameof(FontName)}={FontName}");
+
+            sb.AppendLine($"{nameof(Is24HourFormat)}={Is24HourFormat}");
+            sb.AppendLine($"{nameof(ScrollFrequencyMinutes)}={ScrollFrequencyMinutes}");
+            sb.AppendLine($"{nameof(ShowFeelsLike)}={ShowFeelsLike}");
+            sb.AppendLine($"{nameof(ShowMinTemp)}={ShowMinTemp}");
+            sb.AppendLine($"{nameof(ShowMaxTemp)}={ShowMaxTemp}");
+            sb.AppendLine($"{nameof(ShowHumidity)}={ShowHumidity}");
+            sb.AppendLine($"{nameof(ShowDescription)}={ShowDescription}");
             return sb.ToString();
         }
 
@@ -91,58 +110,37 @@ namespace WeatherClockApp.Models
                     {
                         string key = line.Substring(0, separatorIndex).Trim();
                         string value = line.Substring(separatorIndex + 1).Trim();
-                        Console.WriteLine($"Key: {key}, Value: {value}");
+                        // Console.WriteLine($"Key: {key}, Value: {value}");
                         // Use a switch for efficient property setting
                         switch (key)
                         {
-                            case nameof(IsConfigured):
-                                settings.IsConfigured = value.ToLower() == "true" || value == "1";
-                                break;
-                            case nameof(Ssid):
-                                settings.Ssid = value;
-                                break;
-                            case nameof(Password):
-                                settings.Password = value;
-                                break;
-                            case nameof(WeatherApiKey):
-                                settings.WeatherApiKey = value;
-                                break;
-                            case nameof(LocationName):
-                                settings.LocationName = value;
-                                break;
-                            case nameof(Latitude):
-                                settings.Latitude = double.TryParse(value, out var lat) ? lat : 0;
-                                break;
-                            case nameof(Longitude):
-                                settings.Longitude = double.TryParse(value, out var lon) ? lon : 0;
-                                break;
-                            case nameof(PanelRotation):
-                                settings.PanelRotation = int.TryParse(value, out var rotation) ? rotation : 0;
-                                break;
-                            case nameof(PanelBrightness):
-                                settings.PanelBrightness = int.TryParse(value, out var brightness) ? brightness : 0;
-                                break;
-                            case nameof(DisplayPanels):
-                                settings.DisplayPanels = int.TryParse(value, out var cnt) ? cnt : 0;
-                                break;
-                             case nameof(PanelReversed):
-                                settings.PanelReversed = value.ToLower() == "true" || value == "1";
-                                break;
-                            case nameof(ShowDegreesSymbol):
-                                settings.ShowDegreesSymbol = value.ToLower() == "true" || value == "1";
-                                break;
-                            case nameof(WeatherUnit):
-                                settings.WeatherUnit = value;
-                                break;
-                            case nameof(WeatherRefreshMinutes):
-                                settings.WeatherRefreshMinutes = int.TryParse(value, out var refreshMinutes) ? refreshMinutes : 0;
-                                break;
+                            case nameof(IsConfigured): settings.IsConfigured = value.ToLower() == "true" || value == "1"; break;
+                            case nameof(Ssid): settings.Ssid = value; break;
+                            case nameof(Password): settings.Password = value; break;
+                            case nameof(WeatherApiKey): settings.WeatherApiKey = value; break;
+                            case nameof(LocationName): settings.LocationName = value; break;
+                            case nameof(Latitude):settings.Latitude = double.TryParse(value, out var lat) ? lat : 0; break;
+                            case nameof(Longitude): settings.Longitude = double.TryParse(value, out var lon) ? lon : 0; break;
+                            case nameof(PanelRotation): settings.PanelRotation = int.TryParse(value, out var rotation) ? rotation : 0; break;
+                            case nameof(PanelBrightness): settings.PanelBrightness = int.TryParse(value, out var brightness) ? brightness : 0; break;
+                            case nameof(DisplayPanels): settings.DisplayPanels = int.TryParse(value, out var cnt) ? cnt : 0; break;
+                            case nameof(PanelReversed): settings.PanelReversed = value.ToLower() == "true" || value == "1"; break;
+                            case nameof(ShowDegreesSymbol): settings.ShowDegreesSymbol = value.ToLower() == "true" || value == "1"; break;
+                            case nameof(WeatherUnit): settings.WeatherUnit = value; break;
+                            case nameof(WeatherRefreshMinutes): settings.WeatherRefreshMinutes = int.TryParse(value, out var refreshMinutes) ? refreshMinutes : 0; break;
+                            case nameof(FontName): settings.FontName = value; break;
+                            case nameof(Is24HourFormat): settings.Is24HourFormat = value.ToLower() == "true" || value == "1"; break;
+                            case nameof(ScrollFrequencyMinutes): settings.ScrollFrequencyMinutes = int.TryParse(value, out var sf) ? sf : 1; break;
+                            case nameof(ShowFeelsLike): settings.ShowFeelsLike = value.ToLower() == "true" || value == "1"; break;
+                            case nameof(ShowMinTemp): settings.ShowMinTemp = value.ToLower() == "true" || value == "1"; break;
+                            case nameof(ShowMaxTemp): settings.ShowMaxTemp = value.ToLower() == "true" || value == "1"; break;
+                            case nameof(ShowHumidity): settings.ShowHumidity = value.ToLower() == "true" || value == "1"; break;
+                            case nameof(ShowDescription): settings.ShowDescription = value.ToLower() == "true" || value == "1"; break;
+
                         }
                     }
                 }
             }
-
-            Console.WriteLine($"Settings null: {settings == null}");
             return settings;
         }
     }
