@@ -104,7 +104,7 @@ namespace WeatherClockApp.Fonts
         /// </summary>
         /// <exception cref="System.ArgumentOutOfRangeException">System.Collections.Generic.List.Capacity is set to a value that is less than System.Collections.Generic.List.Count</exception>
         public int Capacity
-        {
+        { 
             get => _list.Capacity;
 
             set

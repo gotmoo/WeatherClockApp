@@ -11,60 +11,48 @@ using WeatherClockApp.Models;
 
 namespace WeatherClockApp.LightweightWeb
 {
-    /// <summary>
-    /// An extremely lightweight, memory-efficient web server for .NET nanoFramework.
-    /// It handles basic GET and POST requests to serve a configuration page.
-    /// </summary>
     public class LightweightWebServer
     {
         private readonly int _port;
         private Thread _serverThread;
         private bool _isRunning = false;
         private Socket _listenSocket;
-        private readonly AppSettings _settings;
+        private AppSettings _settings;
+        private readonly bool _isApMode;
 
-        /// <summary>
-        /// Delegate for handling updated settings.
-        /// </summary>
         public delegate void SettingsUpdatedHandler(object sender, AppSettings newSettings);
 
-        /// <summary>
-        /// Fired when a user submits new settings via the web form.
-        /// </summary>
         public event SettingsUpdatedHandler SettingsUpdated;
 
-
-        public LightweightWebServer(AppSettings settings, int port = 80)
+        public LightweightWebServer(AppSettings settings, bool isApMode, int port = 80)
         {
             _settings = settings;
+            _isApMode = isApMode;
             _port = port;
         }
 
         public void Start(string ipAddress)
         {
             if (_isRunning) return;
-
             _isRunning = true;
             _serverThread = new Thread(() => ListenLoop(ipAddress));
             _serverThread.Start();
-            Debug.WriteLine($"Web server started on port {_port}");
+            Debug.WriteLine($"Web server started on port {_port} (AP Mode: {_isApMode})");
         }
 
         public void Stop()
         {
             if (!_isRunning) return;
-
             _isRunning = false;
             _listenSocket?.Close();
             _serverThread.Join();
-            Debug.WriteLine("Web server stopped.");
         }
 
         private void ListenLoop(string ipAddress)
         {
             _listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _listenSocket.Bind(new IPEndPoint(IPAddress.Parse(ipAddress), _port));
-            _listenSocket.Listen(1); // Listen for 1 connection at a time to save resources
+            _listenSocket.Listen(2);
 
             while (_isRunning)
             {
@@ -74,13 +62,14 @@ namespace WeatherClockApp.LightweightWeb
                     {
                         HandleClient(clientSocket);
                     }
+
+                    // Critical for stability: Force GC after every request to compact heap
+                    nanoFramework.Runtime.Native.GC.Run(true);
+                    Debug.WriteLine($"Free Mem: {nanoFramework.Runtime.Native.GC.Run(false)}");
                 }
                 catch (Exception ex)
                 {
-                    if (_isRunning)
-                    {
-                        Debug.WriteLine($"Error in listen loop: {ex.Message}");
-                    }
+                    if (_isRunning) Debug.WriteLine($"Listen error: {ex.Message}");
                 }
             }
         }
@@ -104,8 +93,6 @@ namespace WeatherClockApp.LightweightWeb
                     string method = requestLine[0];
                     string url = requestLine[1].ToLower();
 
-                    Debug.WriteLine($"Request: {method} {url}");
-
                     if (method == "POST")
                     {
                         string body = GetPostBody(request, requestLines);
@@ -114,26 +101,75 @@ namespace WeatherClockApp.LightweightWeb
                         {
                             ParseWifiFormData(body);
                             SettingsUpdated?.Invoke(this, _settings);
-                            ServeRebootPage(stream, "Wi-Fi settings saved. Device is rebooting.");
+                            ServeRebootPage(stream, "Wi-Fi saved. Rebooting...");
                         }
-                        else if (url == "/save-app-settings")
+                        else if (url == "/save-location")
                         {
-                            ParseAppSettingsFormData(body);
+                            ParseLocationFormData(body);
                             SettingsUpdated?.Invoke(this, _settings);
-                            // Also update the display manager immediately
-                            DisplayManager.SetFont(_settings.FontName);
+
+                            // Immediate update
+                            WeatherClock.TriggerWeatherUpdate();
+
+                            SendRedirectResponse(stream, "/"); // Reloads page, logic will determine active tab
+                        }
+                        else if (url == "/save-clock")
+                        {
+                            var oldWeatherUnit = _settings.WeatherUnit;
+                            ParseClockFormData(body);
+
+                            SettingsUpdated?.Invoke(this, _settings);
+
+                            // Trigger redraw to show new time format immediately
+                            _settings = SettingsManager.LoadSettings();
+                            DisplayManager.UpdateSettings(_settings);
+
+                            if (oldWeatherUnit != _settings.WeatherUnit)
+                            {
+                                WeatherClock.TriggerWeatherUpdate(); // Re-fetch weather if unit changed
+                            }
+
+                            WeatherClock.TriggerWeatherScroll();
+
+                            SendRedirectResponse(stream, "/");
+                        }
+                        else if (url == "/save-display")
+                        {
+                            ParseDisplayFormData(body);
+                            SettingsUpdated?.Invoke(this, _settings);
+
+                            // Immediate update
+                            _settings = SettingsManager.LoadSettings();
+                            DisplayManager.UpdateSettings(_settings);
+
                             SendRedirectResponse(stream, "/");
                         }
                         else if (url == "/reboot")
                         {
-                            ServeRebootPage(stream, "Device is rebooting now.");
+                            ServeRebootPage(stream, "Rebooting...");
+                        }
+                        else
+                        {
+                            SendRedirectResponse(stream, "/");
                         }
                     }
                     else if (method == "GET")
                     {
                         if (url == "/")
                         {
-                            StreamIndexPage(stream, _settings);
+                            // Determine default tab based on state
+                            string activeTab = "display"; // Default
+
+                            if (_isApMode || !_settings.IsConfigured)
+                            {
+                                activeTab = "network";
+                            }
+                            else if (string.IsNullOrEmpty(_settings.WeatherApiKey))
+                            {
+                                activeTab = "location";
+                            }
+
+                            StreamIndexPage(stream, _settings, activeTab);
                         }
                         else if (url.StartsWith("/api/scan-wifi"))
                         {
@@ -147,33 +183,27 @@ namespace WeatherClockApp.LightweightWeb
                         }
                         else
                         {
+                            // Captive portal fallback: redirect to root
                             SendRedirectResponse(stream, "/");
                         }
-                    }
-                    else
-                    {
-                        SendResponse(stream, "405 Method Not Allowed", "text/plain", "Method not allowed.");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error handling client: {ex.Message}");
+                Debug.WriteLine($"Client error: {ex.Message}");
             }
         }
 
-        private void StreamIndexPage(NetworkStream stream, AppSettings settings)
+        private void StreamIndexPage(NetworkStream stream, AppSettings settings, string activeTab)
         {
-            string headers = "HTTP/1.1 200 OK\r\n" +
-                             "Content-Type: text/html\r\n" +
-                             "Transfer-Encoding: chunked\r\n" +
-                             "Connection: close\r\n\r\n";
+            string headers =
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n";
             byte[] headerBytes = Encoding.UTF8.GetBytes(headers);
             stream.Write(headerBytes, 0, headerBytes.Length);
 
-            WebServerPages.WriteIndexPage(stream, settings);
+            WebServerPages.WriteIndexPage(stream, settings, activeTab);
 
-            // Send the final zero-length chunk to terminate the response
             byte[] finalChunk = Encoding.UTF8.GetBytes("0\r\n\r\n");
             stream.Write(finalChunk, 0, finalChunk.Length);
         }
@@ -198,6 +228,7 @@ namespace WeatherClockApp.LightweightWeb
                     return rawRequest.Substring(bodyStartIndex, contentLength);
                 }
             }
+
             return "";
         }
 
@@ -213,10 +244,7 @@ namespace WeatherClockApp.LightweightWeb
 
         private void SendRedirectResponse(NetworkStream stream, string location)
         {
-            string headers = $"HTTP/1.1 302 Found\r\n" +
-                             $"Location: {location}\r\n" +
-                             "Connection: close\r\n\r\n";
-
+            string headers = $"HTTP/1.1 302 Found\r\nLocation: {location}\r\nConnection: close\r\n\r\n";
             byte[] headerBytes = Encoding.UTF8.GetBytes(headers);
             stream.Write(headerBytes, 0, headerBytes.Length);
         }
@@ -224,17 +252,11 @@ namespace WeatherClockApp.LightweightWeb
         private void SendResponse(NetworkStream stream, string status, string contentType, string content)
         {
             byte[] contentBytes = Encoding.UTF8.GetBytes(content);
-            string headers = $"HTTP/1.1 {status}\r\n" +
-                             $"Content-Type: {contentType}\r\n" +
-                             $"Content-Length: {contentBytes.Length}\r\n" +
-                             "Connection: close\r\n\r\n";
-
+            string headers =
+                $"HTTP/1.1 {status}\r\nContent-Type: {contentType}\r\nContent-Length: {contentBytes.Length}\r\nConnection: close\r\n\r\n";
             byte[] headerBytes = Encoding.UTF8.GetBytes(headers);
             stream.Write(headerBytes, 0, headerBytes.Length);
-            if (contentBytes.Length > 0)
-            {
-                stream.Write(contentBytes, 0, contentBytes.Length);
-            }
+            if (contentBytes.Length > 0) stream.Write(contentBytes, 0, contentBytes.Length);
         }
 
         private void ParseWifiFormData(string formData)
@@ -243,53 +265,86 @@ namespace WeatherClockApp.LightweightWeb
             foreach (var pair in pairs)
             {
                 var keyValue = pair.Split('=');
-                if (keyValue.Length == 2)
-                {
-                    string key = WebUtility.UrlDecode(keyValue[0]);
-                    string value = WebUtility.UrlDecode(keyValue[1]);
+                if (keyValue.Length != 2) continue;
+                string key = WebUtility.UrlDecode(keyValue[0]);
+                string value = WebUtility.UrlDecode(keyValue[1]);
 
-                    switch (key)
-                    {
-                        case "ssid": _settings.Ssid = value; break;
-                        case "password": _settings.Password = value; break;
-                    }
-                }
+                if (key == "ssid") _settings.Ssid = value;
+                if (key == "password") _settings.Password = value;
             }
 
             if (!string.IsNullOrEmpty(_settings.Ssid)) _settings.IsConfigured = true;
         }
 
-        private void ParseAppSettingsFormData(string formData)
+        private void ParseLocationFormData(string formData)
         {
             var pairs = formData.Split('&');
+            foreach (var pair in pairs)
+            {
+                var keyValue = pair.Split('=');
+                if (keyValue.Length != 2) continue;
+                string key = WebUtility.UrlDecode(keyValue[0]);
+                string value = WebUtility.UrlDecode(keyValue[1]);
 
-            // IMPORTANT: HTML forms do NOT submit unchecked checkboxes.
-            // We must reset this to false before parsing. If the box is checked, 
-            // the "panelReversed" key will appear in the loop and set it to true.
+                if (key == "weatherApiKey") _settings.WeatherApiKey = value;
+                if (key == "locationName") _settings.LocationName = value;
+                if (key == "latitude" && double.TryParse(value, out var lat)) _settings.Latitude = lat;
+                if (key == "longitude" && double.TryParse(value, out var lon)) _settings.Longitude = lon;
+                if (key == "weatherRefreshMinutes" && int.TryParse(value, out var upd))
+                    _settings.WeatherRefreshMinutes = upd;
+            }
+        }
+
+        private void ParseClockFormData(string formData)
+        {
+            var pairs = formData.Split('&');
+            // Checkbox defaults (unchecked checkboxes are not sent)
+            _settings.ShowDescription = false;
+            _settings.ShowFeelsLike = false;
+            _settings.ShowMinTemp = false;
+            _settings.ShowMaxTemp = false;
+            _settings.ShowHumidity = false;
+            _settings.ShowDegreesSymbol = false;
+
+            foreach (var pair in pairs)
+            {
+                var keyValue = pair.Split('=');
+                if (keyValue.Length != 2) continue;
+                string key = WebUtility.UrlDecode(keyValue[0]);
+                string value = WebUtility.UrlDecode(keyValue[1]);
+
+                if (key == "is24HourFormat") _settings.Is24HourFormat = value == "true";
+                if (key == "showDegrees") _settings.ShowDegreesSymbol = value == "true";
+                if (key == "weatherUnit") _settings.WeatherUnit = value;
+                if (key == "scrollFrequencyMinutes" && int.TryParse(value, out var f))
+                    _settings.ScrollFrequencyMinutes = f;
+
+                if (key == "showDescription") _settings.ShowDescription = value == "true";
+                if (key == "showFeelsLike") _settings.ShowFeelsLike = value == "true";
+                if (key == "showMinTemp") _settings.ShowMinTemp = value == "true";
+                if (key == "showMaxTemp") _settings.ShowMaxTemp = value == "true";
+                if (key == "showHumidity") _settings.ShowHumidity = value == "true";
+            }
+        }
+
+        private void ParseDisplayFormData(string formData)
+        {
+            var pairs = formData.Split('&');
+            // Checkbox default check
             _settings.PanelReversed = false;
 
             foreach (var pair in pairs)
             {
                 var keyValue = pair.Split('=');
-                if (keyValue.Length == 2)
-                {
-                    string key = WebUtility.UrlDecode(keyValue[0]);
-                    string value = WebUtility.UrlDecode(keyValue[1]);
+                if (keyValue.Length != 2) continue;
+                string key = WebUtility.UrlDecode(keyValue[0]);
+                string value = WebUtility.UrlDecode(keyValue[1]);
 
-                    switch (key)
-                    {
-                        case "weatherApiKey": _settings.WeatherApiKey = value; break;
-                        case "locationName": _settings.LocationName = value; break;
-                        case "latitude": double.TryParse(value, out var lat); _settings.Latitude = lat; break;
-                        case "longitude": double.TryParse(value, out var lon); _settings.Longitude = lon; break;
-                        // --- Re-added missing fields ---
-                        case "displayPanels": int.TryParse(value, out var panels); _settings.DisplayPanels = panels; break;
-                        case "panelRotation": int.TryParse(value, out var rot); _settings.PanelRotation = rot; break;
-                        case "panelBrightness": int.TryParse(value, out var bri); _settings.PanelBrightness = bri; break;
-                        case "panelReversed": _settings.PanelReversed = value == "true"; break;
-                        case "fontName": _settings.FontName = value; break;
-                    }
-                }
+                if (key == "displayPanels" && int.TryParse(value, out var p)) _settings.DisplayPanels = p;
+                if (key == "panelRotation" && int.TryParse(value, out var r)) _settings.PanelRotation = r;
+                if (key == "panelBrightness" && int.TryParse(value, out var b)) _settings.PanelBrightness = b;
+                if (key == "fontName") _settings.FontName = value;
+                if (key == "panelReversed") _settings.PanelReversed = value == "true";
             }
         }
     }
