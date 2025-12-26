@@ -12,7 +12,7 @@ namespace WeatherClockApp.Managers
 {
     internal static class NetworkManager
     {
-        public const string ApSsid = "WeatherClock-Setup";
+        public const string ApSsid = "WeerCfg";
         public static string IpAddress { get; private set; }
         public static string ApIpAddress { get; private set; } = "192.168.4.1";
 

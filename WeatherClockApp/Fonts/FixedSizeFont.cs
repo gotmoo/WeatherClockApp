@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+    // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -58,7 +58,8 @@ namespace WeatherClockApp.Fonts
                     end--;
                 }
 
-                return new ListByte(new SpanByte(_data, start, end - start).ToArray());
+                // Avoid allocating a new array - wrap the underlying _data with offset/length
+                return new ListByte(_data, start, end - start);
             }
         }
     }

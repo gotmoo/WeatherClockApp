@@ -88,18 +88,14 @@ namespace WeatherClockApp.Managers
                 Render();
                 Thread.Sleep(100);
             }
-            SetFont(_settings.FontName);
+            //SetFont(_settings.FontName);
         }
 
         public static void DisplayApInfo(string apName, string serverIp)
         {
-            var message = $"To configure, connect to WIFI AP: '{apName}' and browse http://{serverIp}...";
-            while(true)
-            {
-                ScrollFullWidth(message);
-                Thread.Sleep(200);
-            }
-            // ReSharper disable once FunctionNeverReturns
+            ScrollMessage($"Configure at http://{serverIp} on AP {apName}");
+            Thread.Sleep(4000);
+            ScrollMessage($"Configure at http://{serverIp} on AP {apName}");
         }
         public static void DisplayConfigInfo(string serverIp)
         {
@@ -224,26 +220,29 @@ namespace WeatherClockApp.Managers
         /// <summary>
         /// Scrolls a message across the right half of the display.
         /// </summary>
-        public static void ScrollRightHalf(string message)
+        public static void ScrollRightHalf(string message, string leftText = null)
         {
             if (_isScrolling) return;
 
-            _scrollThread = new Thread(() => ScrollTextOnRightHalf(message));
+            _scrollThread = new Thread(() => ScrollTextOnRightHalf(message, leftText));
             _scrollThread.Start();
         }
 
-        private static void ScrollTextOnRightHalf(object messageObj)
+        private static void ScrollTextOnRightHalf(object messageObj, string leftText = null)
         {
             string message = (string)messageObj;
             _isScrolling = true;
 
             // Pre-render the time on the left half to a temporary buffer
             byte[] leftHalfBuffer = new byte[_screenWidth / 2];
-            DateTime now = DateTime.UtcNow.AddSeconds(_utcOffsetSeconds);
-            string timeStr = now.ToString(GetTimeFormatString(showColon: true));
-            int timeWidth = GetTextWidth(timeStr);
-            int timeX = (_screenWidth / 2 - timeWidth) / 2;
-            RenderTextToBuffer(timeStr, timeX, 0, leftHalfBuffer);
+            if (leftText == null) // If no left text provided, use current time
+            {
+                DateTime now = DateTime.UtcNow.AddSeconds(_utcOffsetSeconds);
+                leftText = now.ToString(GetTimeFormatString(showColon: true));
+            }
+            int leftWidth = GetTextWidth(leftText);
+            int timeX = (_screenWidth / 2 - leftWidth) / 2;
+            RenderTextToBuffer(leftText, timeX, 0, leftHalfBuffer);
 
             // Pre-render the full scroll message to an off-screen buffer
             int textWidth = GetTextWidth(message);

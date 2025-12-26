@@ -16,7 +16,12 @@ namespace WeatherClockApp.Fonts
     /// </summary>
     public class ListByte : IEnumerable
     {
+        // Internal storage: either an ArrayList (mutable) or a wrapped byte[] (non-copying, read-mostly)
         private ArrayList _list;
+        private byte[] _backingArray;
+        private int _offset;
+        private int _length;
+        private bool _isWrappedArray;
 
         /// <summary>
         /// Initializes a new instance of the System.Collections.Generic.List class that
@@ -25,6 +30,35 @@ namespace WeatherClockApp.Fonts
         public ListByte()
         {
             _list = new ArrayList();
+            _isWrappedArray = false;
+        }
+
+        /// <summary>
+        /// Wrap an existing byte[] without copying. This is a memory-friendly constructor used for static font data.
+        /// The wrapped array is used directly for read operations. If a mutating operation is required the internal
+        /// storage will be converted to an ArrayList (copy-on-write).
+        /// </summary>
+        /// <param name="array">Byte array to wrap.</param>
+        public ListByte(byte[] array) : this(array, 0, array == null ? 0 : array.Length)
+        {
+        }
+
+        /// <summary>
+        /// Wrap an existing byte[] with offset and length without copying.
+        /// </summary>
+        /// <param name="array">Byte array to wrap.</param>
+        /// <param name="offset">Start index in array.</param>
+        /// <param name="length">Number of bytes to expose.</param>
+        public ListByte(byte[] array, int offset, int length)
+        {
+            if (array == null) throw new ArgumentNullException();
+            if (offset < 0 || length < 0 || offset + length > array.Length) throw new ArgumentOutOfRangeException();
+
+            _backingArray = array;
+            _offset = offset;
+            _length = length;
+            _isWrappedArray = true;
+            _list = null;
         }
 
         /// <summary>
@@ -46,6 +80,31 @@ namespace WeatherClockApp.Fonts
             {
                 _list.Add(elem);
             }
+            _isWrappedArray = false;
+        }
+
+        /// <summary>
+        /// Ensures internal storage is an ArrayList. If a wrapped array exists it will be copied into the ArrayList.
+        /// Used for mutating operations (copy-on-write).
+        /// </summary>
+        private void EnsureList()
+        {
+            if (_isWrappedArray)
+            {
+                _list = new ArrayList();
+                for (int i = 0; i < _length; i++)
+                {
+                    _list.Add(_backingArray[_offset + i]);
+                }
+                _backingArray = null;
+                _offset = 0;
+                _length = 0;
+                _isWrappedArray = false;
+            }
+            else if (_list == null)
+            {
+                _list = new ArrayList();
+            }
         }
 
         /// <summary>
@@ -62,31 +121,41 @@ namespace WeatherClockApp.Fonts
             }
             _list = new ArrayList();
             _list.Capacity = capacity;
+            _isWrappedArray = false;
         }
 
         /// <summary>
         /// Gets or sets the element at the specified index.
         /// </summary>
-        /// <param name="index">The zero-based index of the element to get or set.</param>
-        /// <returns>The element at the specified index.</returns>
-        /// <exception cref="System.ArgumentOutOfRangeException">index is less than 0. -or- index is equal to or greater than System.Collections.Generic.List.Count.</exception>
         public byte this[int index]
         {
             get
             {
-                if ((index < 0) || (index >= _list.Count))
+                if ((_isWrappedArray && (index < 0 || index >= _length)) ||
+                    (!_isWrappedArray && (index < 0 || index >= _list.Count)))
                 {
                     throw new ArgumentOutOfRangeException();
                 }
+
+                if (_isWrappedArray) return _backingArray[_offset + index];
 
                 return (byte)_list[index];
             }
 
             set
             {
-                if ((index < 0) || (index >= _list.Count))
+                if (_isWrappedArray)
                 {
-                    throw new ArgumentOutOfRangeException();
+                    if (index < 0 || index >= _length) throw new ArgumentOutOfRangeException();
+                    // convert to ArrayList (copy-on-write) to support mutation
+                    EnsureList();
+                }
+                else
+                {
+                    if ((index < 0) || (index >= _list.Count))
+                    {
+                        throw new ArgumentOutOfRangeException();
+                    }
                 }
 
                 _list[index] = value;
@@ -96,19 +165,23 @@ namespace WeatherClockApp.Fonts
         /// <summary>
         /// Gets the number of elements contained in the System.Collections.Generic.List
         /// </summary>
-        public int Count => _list.Count;
+        public int Count => _isWrappedArray ? _length : _list.Count;
 
         /// <summary>
         /// Gets or sets the total number of elements the internal data structure can hold
         /// without resizing.
         /// </summary>
-        /// <exception cref="System.ArgumentOutOfRangeException">System.Collections.Generic.List.Capacity is set to a value that is less than System.Collections.Generic.List.Count</exception>
         public int Capacity
-        { 
-            get => _list.Capacity;
-
+        {
+            get => _isWrappedArray ? _length : _list.Capacity;
             set
             {
+                if (_isWrappedArray)
+                {
+                    if (value < _length) throw new ArgumentOutOfRangeException();
+                    EnsureList();
+                }
+
                 if (value < _list.Count)
                 {
                     throw new ArgumentOutOfRangeException();
@@ -121,19 +194,15 @@ namespace WeatherClockApp.Fonts
         /// <summary>
         /// Adds an object to the end of the System.Collections.Generic.List.
         /// </summary>
-        /// <param name="item">The object to be added to the end of the System.Collections.Generic.List. The value can be null for reference types.</param>
         public void Add(byte item)
         {
+            EnsureList();
             _list.Add(item);
         }
 
         /// <summary>
         /// Adds the elements of the specified collection to the end of the System.Collections.Generic.List.
         /// </summary>
-        /// <param name="collection">The collection whose elements should be added to the end of the System.Collections.Generic.List.
-        /// The collection itself cannot be null, but it can contain elements that are null, if type byte is a reference type.
-        /// </param>
-        /// <exception cref="System.ArgumentNullException">collection is null.</exception>
         public void AddRange(IEnumerable collection)
         {
             if (collection == null)
@@ -141,6 +210,7 @@ namespace WeatherClockApp.Fonts
                 throw new ArgumentNullException();
             }
 
+            EnsureList();
             foreach (var elem in collection)
             {
                 _list.Add(elem);
@@ -150,7 +220,6 @@ namespace WeatherClockApp.Fonts
         /// <summary>
         /// Returns an enumerator that iterates through the System.Collections.Generic.List.
         /// </summary>
-        /// <returns>A System.Collections.Generic.List.Enumerator for the System.Collections.Generic.List.</returns>
         public IEnumerator GetEnumerator() => new Enumerator(this);
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -163,34 +232,19 @@ namespace WeatherClockApp.Fonts
             private int _index;
             private ListByte _collection;
 
-            /// <summary>
-            /// Create an enumerator of the collection
-            /// </summary>
-            /// <param name="collection"></param>
             public Enumerator(ListByte collection)
             {
                 _index = -1;
                 _collection = collection;
             }
 
-            /// <summary>
-            /// Gets the element at the current position of the enumerator.
-            /// </summary>
             public byte Current => _collection[_index == -1 ? 0 : _index];
 
             object IEnumerator.Current => Current;
 
-            /// <summary>
-            /// Releases all resources used by the System.Collections.Generic.List.Enumerator.
-            /// </summary>
             public void Dispose()
             { }
 
-            /// <summary>
-            /// Advances the enumerator to the next element of the System.Collections.Generic.List.
-            /// </summary>
-            /// <returns>true if the enumerator was successfully advanced to the next element; false if
-            /// the enumerator has passed the end of the collection.</returns>
             public bool MoveNext()
             {
                 if ((_index + 1) >= _collection.Count)
@@ -202,9 +256,6 @@ namespace WeatherClockApp.Fonts
                 return true;
             }
 
-            /// <summary>
-            /// Move back to first position
-            /// </summary>
             public void Reset()
             {
                 _index = -1;
@@ -214,10 +265,17 @@ namespace WeatherClockApp.Fonts
         /// <summary>
         /// Determines whether an element is in the System.Collections.Generic.List.
         /// </summary>
-        /// <param name="item">The object to locate in the System.Collections.Generic.List. The value can be null for reference types.</param>
-        /// <returns>true if item is found in the System.Collections.Generic.List; otherwise, false.</returns>
         public bool Contains(byte item)
         {
+            if (_isWrappedArray)
+            {
+                for (int i = 0; i < _length; i++)
+                {
+                    if (_backingArray[_offset + i] == item) return true;
+                }
+                return false;
+            }
+
             foreach (var elem in _list)
             {
                 if (((byte)elem).GetHashCode() == item.GetHashCode())
@@ -233,47 +291,16 @@ namespace WeatherClockApp.Fonts
         /// Copies the entire System.Collections.Generic.List to a compatible one-dimensional
         /// array, starting at the specified index of the target array.
         /// </summary>
-        /// <param name="array">The one-dimensional System.Array that is the destination of the elements copied
-        /// from System.Collections.Generic.List. The System.Array must have zero-based indexing.</param>
-        /// <param name="arrayIndex">The zero-based index in array at which copying begins.</param>
-        /// <exception cref="System.ArgumentNullException">array is null.</exception>
-        /// <exception cref="System.ArgumentOutOfRangeException">arrayIndex is less than 0.</exception>
-        /// <exception cref="System.ArgumentException">The number of elements in the source System.Collections.Generic.List is greater
-        /// than the available space from arrayIndex to the end of the destination array.</exception>
         public void CopyTo(byte[] array, int arrayIndex)
         {
-            CopyTo(0, array, arrayIndex, _list.Count);
+            CopyTo(0, array, arrayIndex, Count);
         }
 
-        /// <summary>
-        /// Copies the entire System.Collections.Generic.List to a compatible one-dimensional
-        /// array, starting at the beginning of the target array.
-        /// </summary>
-        /// <param name="array">The one-dimensional System.Array that is the destination of the elements copied
-        /// from System.Collections.Generic.List. The System.Array must have zero-based indexing.</param>
-        /// <exception cref="System.ArgumentNullException">array is null.</exception>
-        /// <exception cref="System.ArgumentException">The number of elements in the source System.Collections.Generic.List is greater
-        /// than the number of elements that the destination array can contain.</exception>
         public void CopyTo(byte[] array)
         {
-            CopyTo(0, array, 0, _list.Count);
+            CopyTo(0, array, 0, Count);
         }
 
-        /// <summary>
-        /// Copies a range of elements from the System.Collections.Generic.List to a compatible
-        /// one-dimensional array, starting at the specified index of the target array.
-        /// </summary>
-        /// <param name="index">The zero-based index in the source System.Collections.Generic.List at which
-        /// copying begins.</param>
-        /// <param name="array">The one-dimensional System.Array that is the destination of the elements copied
-        /// from System.Collections.Generic.List. The System.Array must have zero-based indexing.</param>
-        /// <param name="arrayIndex">The zero-based index in array at which copying begins.</param>
-        /// <param name="count">The number of elements to copy.</param>
-        /// <exception cref="System.ArgumentNullException">array is null.</exception>
-        /// <exception cref="System.ArgumentOutOfRangeException">index is less than 0. -or- arrayIndex is less than 0. -or- count is less than 0.</exception>
-        /// <exception cref="System.ArgumentException">index is equal to or greater than the System.Collections.Generic.List.Count
-        /// of the source System.Collections.Generic.List. -or- The number of elements
-        /// from index to the end of the source System.Collections.Generic.List is greater than the available space from arrayIndex to the end of the destination array.</exception>
         public void CopyTo(int index, byte[] array, int arrayIndex, int count)
         {
             if (array == null)
@@ -286,24 +313,37 @@ namespace WeatherClockApp.Fonts
                 throw new ArgumentOutOfRangeException();
             }
 
-            if ((index >= _list.Count) || (_list.Count - index < count) || (count > array.Length - arrayIndex) || (arrayIndex + count > array.Length))
+            if (count > array.Length - arrayIndex)
             {
                 throw new ArgumentException();
             }
-            for (int i = index; i < count; i++)
+
+            if (_isWrappedArray)
             {
-                array[arrayIndex + i] = (byte)_list[i];
+                if (index >= _length || index + count > _length)
+                {
+                    throw new ArgumentException();
+                }
+
+                for (int i = 0; i < count; i++)
+                {
+                    array[arrayIndex + i] = _backingArray[_offset + index + i];
+                }
+
+                return;
+            }
+
+            if ((index >= _list.Count) || (_list.Count - index < count) || (arrayIndex + count > array.Length))
+            {
+                throw new ArgumentException();
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                array[arrayIndex + i] = (byte)_list[index + i];
             }
         }
 
-        /// <summary>
-        /// Creates a shallow copy of a range of elements in the source System.Collections.Generic.List.
-        /// </summary>
-        /// <param name="index">The zero-based System.Collections.Generic.List index at which the range starts.</param>
-        /// <param name="count">The number of elements in the range.</param>
-        /// <returns> A shallow copy of a range of elements in the source System.Collections.Generic.List.</returns>
-        /// <exception cref="System.ArgumentOutOfRangeException">index is less than 0. -or- count is less than 0.</exception>
-        /// <exception cref="System.ArgumentException">index and count do not denote a valid range of elements in the System.Collections.Generic.List.</exception>
         public ListByte GetRange(int index, int count)
         {
             if ((index < 0) || (count < 0))
@@ -311,72 +351,55 @@ namespace WeatherClockApp.Fonts
                 throw new ArgumentOutOfRangeException();
             }
 
-            if (count > _list.Count - index)
+            if (count > Count - index)
             {
                 throw new ArgumentException();
             }
 
             var list = new ListByte();
-            for (int i = index; i < count; i++)
+            if (_isWrappedArray)
             {
-                list.Add((byte)_list[i]);
+                for (int i = index; i < index + count; i++)
+                {
+                    list.Add(_backingArray[_offset + i]);
+                }
+            }
+            else
+            {
+                for (int i = index; i < index + count; i++)
+                {
+                    list.Add((byte)_list[i]);
+                }
             }
 
             return list;
         }
 
-        /// <summary>
-        /// Searches for the specified object and returns the zero-based index of the first
-        /// occurrence within the range of elements in the System.Collections.Generic.List
-        /// that starts at the specified index and contains the specified number of elements.
-        /// </summary>
-        /// <param name="item">The object to locate in the System.Collections.Generic.List. The value can be null for reference types.</param>
-        /// <param name="index">The zero-based starting index of the search. 0 (zero) is valid in an empty list.</param>
-        /// <param name="count">The number of elements in the section to search.</param>
-        /// <returns>The zero-based index of the first occurrence of item within the range of elements
-        /// in the System.Collections.Generic.List that starts at index and contains count
-        /// number of elements, if found; otherwise, -1.</returns>
-        /// <exception cref="System.ArgumentOutOfRangeException">index is outside the range of valid indexes for the System.Collections.Generic.List.
-        /// -or- count is less than 0. -or- index and count do not specify a valid section
-        /// in the System.Collections.Generic.List.</exception>
-        public int IndexOf(byte item, int index, int count) => _list.IndexOf(item, index, count);
+        public int IndexOf(byte item, int index, int count)
+        {
+            if (_isWrappedArray)
+            {
+                if (index < 0 || count < 0 || index + count > _length) throw new ArgumentOutOfRangeException();
+                for (int i = index; i < index + count; i++)
+                {
+                    if (_backingArray[_offset + i] == item) return i;
+                }
+                return -1;
+            }
 
-        /// <summary>
-        /// Searches for the specified object and returns the zero-based index of the first
-        /// occurrence within the range of elements in the System.Collections.Generic.List
-        /// that extends from the specified index to the last element.
-        /// </summary>
-        /// <param name="item">The object to locate in the System.Collections.Generic.List. The value can be null for reference types.</param>
-        /// <param name="index">The zero-based starting index of the search. 0 (zero) is valid in an empty list.</param>
-        /// <returns>The zero-based index of the first occurrence of item within the range of elements
-        /// in the System.Collections.Generic.List that extends from index to the last
-        /// element, if found; otherwise, -1.</returns>
-        /// <exception cref="System.ArgumentOutOfRangeException">index is outside the range of valid indexes for the System.Collections.Generic.List.</exception>
-        public int IndexOf(byte item, int index) => IndexOf(item, index, _list.Count - index);
+            return _list.IndexOf(item, index, count);
+        }
 
-        /// <summary>
-        /// Searches for the specified object and returns the zero-based index of the first
-        /// occurrence within the entire System.Collections.Generic.List.
-        /// </summary>
-        /// <param name="item">The object to locate in the System.Collections.Generic.List. The value can be null for reference types.</param>
-        /// <returns>The zero-based index of the first occurrence of item within the entire System.Collections.Generic.List, if found; otherwise, -1.</returns>
-        public int IndexOf(byte item) => IndexOf(item, 0, _list.Count);
+        public int IndexOf(byte item, int index) => IndexOf(item, index, Count - index);
 
-        /// <summary>
-        /// Inserts an element into the System.Collections.Generic.List at the specified index.
-        /// </summary>
-        /// <param name="index">The zero-based index at which item should be inserted.</param>
-        /// <param name="item">The object to insert. The value can be null for reference types.</param>
-        /// <exception cref="System.ArgumentOutOfRangeException">index is less than 0. -or- index is greater than System.Collections.Generic.List.Count.</exception>
-        public void Insert(int index, byte item) => _list.Insert(index, item);
+        public int IndexOf(byte item) => IndexOf(item, 0, Count);
 
-        /// <summary>
-        /// Inserts the elements of a collection into the System.Collections.Generic.List at the specified index.
-        /// </summary>
-        /// <param name="index">The zero-based index at which the new elements should be inserted.</param>
-        /// <param name="collection">The collection whose elements should be inserted into the System.Collections.Generic.List. The collection itself cannot be null, but it can contain elements that are null, if type byte is a reference type.</param>
-        /// <exception cref="System.ArgumentNullException">collection is null.</exception>
-        /// <exception cref="System.ArgumentOutOfRangeException">index is less than 0. -or- index is greater than System.Collections.Generic.List.Count.</exception>
+        public void Insert(int index, byte item)
+        {
+            EnsureList();
+            _list.Insert(index, item);
+        }
+
         public void InsertRange(int index, IEnumerable collection)
         {
             if (collection == null)
@@ -384,55 +407,34 @@ namespace WeatherClockApp.Fonts
                 throw new ArgumentNullException();
             }
 
-            if ((index < 0) || (index > _list.Count))
-            {
-                throw new ArgumentOutOfRangeException();
-            }
-
+            EnsureList();
             foreach (var elem in collection)
             {
                 _list.Insert(index++, elem);
             }
         }
 
-        /// <summary>
-        /// Searches for the specified object and returns the zero-based index of the last
-        /// occurrence within the entire System.Collections.Generic.List.
-        /// </summary>
-        /// <param name="item">The object to locate in the System.Collections.Generic.List. The value can be null for reference types.</param>
-        /// <returns>The zero-based index of the last occurrence of item within the entire the System.Collections.Generic.List, if found; otherwise, -1.</returns>
-        public int LastIndexOf(byte item) => LastIndexOf(item, _list.Count - 1, _list.Count);
- 
-        /// <summary>
-        /// Searches for the specified object and returns the zero-based index of the last
-        /// occurrence within the range of elements in the System.Collections.Generic.List
-        /// that extends from the first element to the specified index.
-        /// </summary>
-        /// <param name="item">The object to locate in the System.Collections.Generic.List. The value can be null for reference types.</param>
-        /// <param name="index">The zero-based starting index of the backward search.</param>
-        /// <returns>The zero-based index of the last occurrence of item within the range of elements
-        /// in the System.Collections.Generic.List that extends from the first element
-        /// to index, if found; otherwise, -1.</returns>
-        /// <exception cref="System.ArgumentOutOfRangeException">index is outside the range of valid indexes for the System.Collections.Generic.List.</exception>
-        public int LastIndexOf(byte item, int index) => LastIndexOf(item, index, _list.Count - index);
+        public int LastIndexOf(byte item) => LastIndexOf(item, Count - 1, Count);
 
-        /// <summary>
-        /// Searches for the specified object and returns the zero-based index of the last
-        /// occurrence within the range of elements in the System.Collections.Generic.List
-        /// that contains the specified number of elements and ends at the specified index.
-        /// </summary>
-        /// <param name="item">The object to locate in the System.Collections.Generic.List. The value can be null for reference types.</param>
-        /// <param name="index">The zero-based starting index of the backward search.</param>
-        /// <param name="count">The number of elements in the section to search.</param>
-        /// <returns>The zero-based index of the last occurrence of item within the range of elements
-        /// in the System.Collections.Generic.List that contains count number of elements
-        /// and ends at index, if found; otherwise, -1.</returns>
-        /// <exception cref="System.ArgumentOutOfRangeException">index is outside the range of valid indexes for the System.Collections.Generic.List. -or- count is less than 0. -or- index and count do not specify a valid section in the System.Collections.Generic.List.</exception>
+        public int LastIndexOf(byte item, int index) => LastIndexOf(item, index, Count - index);
+
         public int LastIndexOf(byte item, int index, int count)
         {
-            if ((index < 0) || (count < 0) || (index + count > _list.Count))
+            if ((index < 0) || (count < 0) || (index + count > Count))
             {
                 throw new ArgumentOutOfRangeException();
+            }
+
+            if (_isWrappedArray)
+            {
+                int start = Math.Min(index, _length - 1);
+                int end = Math.Max(0, start - count + 1);
+                for (int i = start; i >= end; i--)
+                {
+                    if (_backingArray[_offset + i] == item) return i;
+                }
+
+                return -1;
             }
 
             for (int i = index; i >= _list.Count - count - index; i--)
@@ -446,14 +448,9 @@ namespace WeatherClockApp.Fonts
             return -1;
         }
 
-        /// <summary>
-        /// Removes the first occurrence of a specific object from the System.Collections.Generic.List.
-        /// </summary>
-        /// <param name="item">The object to remove from the System.Collections.Generic.List. The value can be null for reference types.</param>
-        /// <returns>true if item is successfully removed; otherwise, false. This method also returns
-        /// false if item was not found in the System.Collections.Generic.List.</returns>
         public bool Remove(byte item)
         {
+            EnsureList();
             if (_list.Contains(item))
             {
                 _list.Remove(item);
@@ -463,19 +460,12 @@ namespace WeatherClockApp.Fonts
             return false;
         }
 
-        /// <summary>
-        /// Removes the element at the specified index of the System.Collections.Generic.List.
-        /// </summary>
-        /// <param name="index">The zero-based index of the element to remove.</param>
-        public void RemoveAt(int index) => _list.RemoveAt(index);
+        public void RemoveAt(int index)
+        {
+            EnsureList();
+            _list.RemoveAt(index);
+        }
 
-        /// <summary>
-        /// Removes a range of elements from the System.Collections.Generic.List.
-        /// </summary>
-        /// <param name="index">The zero-based starting index of the range of elements to remove.</param>
-        /// <param name="count">The number of elements to remove.</param>
-        /// <exception cref="System.ArgumentOutOfRangeException">index is less than 0. -or- count is less than 0.</exception>
-        /// <exception cref="System.ArgumentException">index and count do not denote a valid range of elements in the System.Collections.Generic.List.</exception>
         public void RemoveRange(int index, int count)
         {
             if ((index < 0) || (count < 0))
@@ -483,11 +473,12 @@ namespace WeatherClockApp.Fonts
                 throw new ArgumentOutOfRangeException();
             }
 
-            if (index + count > _list.Count)
+            if (index + count > Count)
             {
                 throw new ArgumentException();
             }
 
+            EnsureList();
             for (int i = 0; i < count; i++)
             {
                 _list.RemoveAt(index);
@@ -497,16 +488,25 @@ namespace WeatherClockApp.Fonts
         /// <summary>
         /// Copies the elements of the System.Collections.Generic.List to a new array.
         /// </summary>
-        /// <returns> An array containing copies of the elements of the System.Collections.Generic.List.</returns>
         public byte[] ToArray()
         {
-            byte[] array = new byte[_list.Count];
-            for (int i = 0; i < array.Length; i++)
+            if (_isWrappedArray)
             {
-                array[i] = (byte)_list[i];
+                var array = new byte[_length];
+                for (int i = 0; i < _length; i++)
+                {
+                    array[i] = _backingArray[_offset + i];
+                }
+                return array;
             }
 
-            return array;
+            byte[] arrayList = new byte[_list.Count];
+            for (int i = 0; i < arrayList.Length; i++)
+            {
+                arrayList[i] = (byte)_list[i];
+            }
+
+            return arrayList;
         }
 
     }
